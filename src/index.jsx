@@ -39,6 +39,85 @@ export default function App() {
   const [wingLoad, setWingLoad] = useState(1.0);
 
   const glider = GLIDERS.find((g) => g.id === selectedGliderId);
+  // ===== SEO: canonical + alternates =====
+  useEffect(() => {
+    try {
+      const head = document.head;
+      const make = (rel, href, hreflang) => {
+        const el = document.createElement("link");
+        el.rel = rel; el.href = href; if (hreflang) el.hreflang = hreflang; return el;
+      };
+      // remove previous
+      head.querySelectorAll('link[rel="canonical"], link[rel="alternate"]').forEach((n) => n.remove());
+      const base = "https://parapolar.com";
+      const path = window.location.pathname.replace(/\/(fr|de)(?=\/|$)/, "");
+      const canHref = lang === "en" ? `${base}${path || "/"}` : `${base}/${lang}${path === "/" ? "" : path}`;
+      head.appendChild(make("canonical", canHref));
+      head.appendChild(make("alternate", `${base}${path || "/"}`, "en"));
+      head.appendChild(make("alternate", `${base}/fr${path === "/" ? "" : path}`, "fr"));
+      head.appendChild(make("alternate", `${base}/de${path === "/" ? "" : path}`, "de"));
+      head.appendChild(make("alternate", canHref, "x-default"));
+    } catch {}
+  }, [lang]);
+  // ===== Language persistence and URL sync =====
+  useEffect(() => {
+    try { localStorage.setItem("pp_lang", lang); } catch {}
+    try {
+      // update URL path to include /fr or /de (keep query/hash), default is root for en
+      const path = window.location.pathname.replace(/\/(fr|de)(?=\/|$)/, "");
+      const newPath = lang === "en" ? path || "/" : `/${lang}${path === "/" ? "" : path}`;
+      const url = newPath + window.location.search + window.location.hash;
+      if (url !== window.location.pathname + window.location.search + window.location.hash) {
+        window.history.replaceState(null, "", url);
+      }
+    } catch {}
+    try {
+      document.cookie = `pp_lang=${lang}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+    } catch {}
+  }, [lang]);
+
+  // ===== State save/restore (intuitive, with a reset) =====
+  useEffect(() => {
+    // restore once
+    let restored = false;
+    try {
+      const raw = localStorage.getItem("pp_state_v1");
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s) {
+          if (s.mode) setMode(s.mode);
+          if (s.unit) setUnit(s.unit);
+          if (s.gliderId) setSelectedGliderId(s.gliderId);
+          if (Number.isFinite(s.pilotSlider)) setPilotSlider(s.pilotSlider);
+          if (Number.isFinite(s.simpleWind)) setSimpleWind(s.simpleWind);
+          if (Number.isFinite(s.windKmh)) setWindKmh(s.windKmh);
+          if (Number.isFinite(s.liftMs)) setLiftMs(s.liftMs);
+          if (s.preset) setPreset(s.preset);
+          if (Number.isFinite(s.maccreadyMs)) setMaccreadyMs(s.maccreadyMs);
+          if (Number.isFinite(s.wingLoad)) setWingLoad(s.wingLoad);
+          restored = true;
+        }
+      }
+    } catch {}
+    // If nothing restored, leave current defaults
+  }, []);
+
+  useEffect(() => {
+    // persist regularly when inputs change
+    const state = {
+      mode,
+      unit,
+      gliderId: selectedGliderId,
+      pilotSlider,
+      simpleWind,
+      windKmh,
+      liftMs,
+      preset,
+      maccreadyMs,
+      wingLoad,
+    };
+    try { localStorage.setItem("pp_state_v1", JSON.stringify(state)); } catch {}
+  }, [mode, unit, selectedGliderId, pilotSlider, simpleWind, windKmh, liftMs, preset, maccreadyMs, wingLoad]);
 
   // ===== Build polar (through air) with wing loading =====
   const polar = useMemo(() => {
@@ -209,6 +288,20 @@ export default function App() {
               </button>
               <LangSwitcher lang={lang} setLang={setLang} />
               <ModeToggle mode={mode} setMode={setMode} t={t} />
+              <ResetButton onReset={() => {
+                try { localStorage.removeItem("pp_state_v1"); } catch {}
+                // Reset to sensible defaults
+                setMode("simple");
+                setUnit("kmh");
+                setSelectedGliderId(GLIDERS[1].id);
+                setPilotSlider(50);
+                setSimpleWind(0);
+                setWindKmh(0);
+                setLiftMs(0);
+                setPreset("none");
+                setMaccreadyMs(0);
+                setWingLoad(1.0);
+              }} />
             </div>
           </div>
         </header>
@@ -619,6 +712,18 @@ function GliderPicker({ gliders, selectedId, onSelect }) {
         );
       })}
     </div>
+  );
+}
+
+function ResetButton({ onReset }) {
+  return (
+    <button
+      onClick={onReset}
+      className="px-2 py-1 text-sm rounded-full border border-slate-300 dark:border-slate-700"
+      title="Reset to defaults"
+    >
+      ⟲
+    </button>
   );
 }
 

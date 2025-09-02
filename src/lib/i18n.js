@@ -188,6 +188,28 @@ export const I18N = {
 };
 
 export function detectLang() {
+  try {
+    // 1) explicit persisted preference
+    const ls = typeof localStorage !== "undefined" && localStorage.getItem("pp_lang");
+    if (ls && (ls === "en" || ls === "de" || ls === "fr")) return ls;
+  } catch {}
+
+  try {
+    // 2) URL path prefix /fr or /de
+    const p = typeof window !== "undefined" && window.location && window.location.pathname;
+    if (typeof p === "string") {
+      if (p === "/fr" || p.startsWith("/fr/")) return "fr";
+      if (p === "/de" || p.startsWith("/de/")) return "de";
+    }
+  } catch {}
+
+  try {
+    // 3) cookie from edge redirect (pp_lang=fr|de|en)
+    const m = typeof document !== "undefined" && document.cookie && document.cookie.match(/(?:^|; )pp_lang=(en|de|fr)/);
+    if (m) return m[1];
+  } catch {}
+
+  // 4) navigator fallback
   const nav = (typeof navigator !== "undefined" && navigator.language) || "en";
   if (nav.startsWith("fr")) return "fr";
   if (nav.startsWith("de")) return "de";
