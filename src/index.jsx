@@ -184,9 +184,12 @@ export default function App() {
     <div className={`min-h-screen ${dark ? "dark" : ""}`}>
       <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
         <header className="px-4 py-3 md:px-6 sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-200 dark:border-slate-800">
-          <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
-            <h1 className="text-xl md:text-2xl font-semibold">{t.app_title}</h1>
-            <div className="flex items-center gap-2">
+          <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 flex-wrap">
+            <h1 className="text-xl md:text-2xl font-semibold">
+              <span className="text-sky-600 font-bold">para</span><span className="text-slate-800 dark:text-slate-100 font-bold">polar</span>
+              <span className="ml-2 text-slate-500 text-sm hidden sm:inline">Paraglider Polar & Speed‑to‑Fly Visualizer</span>
+            </h1>
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => setDark((d) => !d)}
                 className="px-2 py-1 text-sm rounded-full border border-slate-300 dark:border-slate-700"
@@ -422,18 +425,20 @@ export default function App() {
                       {t[`unit_${unit}`]}
                     </span>
 
-                    <span className="text-slate-500">{t.glide_ratio_air}</span>
+                    <span className="text-slate-500 flex items-center gap-2">
+                      <span className="inline-block w-3 h-0.5 bg-slate-400"></span>
+                      {t.glide_ratio_air}
+                    </span>
                     <span className="font-medium">
-                      {GR_air > 0 ? GR_air.toFixed(1) + ":1" : "—"}
+                      {(GR_air || 0).toFixed(1) + ":1"}
                     </span>
 
-                    <span className="text-slate-500">
+                    <span className="text-slate-500 flex items-center gap-2">
+                      <span className="inline-block w-3 h-0.5 bg-emerald-500"></span>
                       {t.glide_ratio_ground}
                     </span>
                     <span className="font-medium">
-                      {vxGroundMs > 0 && vzGroundMs < 0
-                        ? (-vzGroundMs / vxGroundMs).toFixed(1) + ":1"
-                        : "—"}
+                      {((-vzGroundMs) / (vxGroundMs || 1)).toFixed(1) + ":1"}
                     </span>
                   </div>
                 </div>
@@ -448,6 +453,7 @@ export default function App() {
                 t={t}
                 unit={unit}
                 lang={lang}
+                mode={mode}
                 polar={polar}
                 flightMode={flightMode}
                 displaySpeedKmh={displaySpeedKmh}
@@ -485,11 +491,12 @@ export default function App() {
         </main>
 
         <footer className="max-w-6xl mx-auto px-4 md:px-6 pb-10 text-xs text-slate-500 dark:text-slate-400">
-          <p>
-            Data are archetypal. Stall/overspeed beyond the valid polar are
-            shown as dotted vertical drops: stall ≈ −6 m/s, frontal collapse ≈
-            −8 m/s. Headwind is positive; lift is positive.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <p>Archetypal data; educational only. Headwind and lift are positive.</p>
+            <p>
+              Made by <a href="https://www.linkedin.com/in/thomas-roos/" className="underline hover:text-slate-700">Thomas Roos</a> with ❤ from Amsterdam. Thanks to Barbara & Régis, and Seb & Arnoud. <a className="underline hover:text-slate-700" href="http://github.com/Roosted7/ParaPolar">GitHub</a>
+            </p>
+          </div>
         </footer>
       </div>
     </div>
@@ -522,25 +529,25 @@ function ModeToggle({ mode, setMode, t }) {
     <div className="flex items-center gap-2">
       <button
         onClick={() => setMode("simple")}
-        className={`px-3 py-1.5 rounded-full text-sm border ${
+    className={`px-3 py-1.5 rounded-full text-sm border ${
           mode === "simple"
-            ? "bg-emerald-600 text-white border-emerald-600"
-            : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
+      ? "bg-emerald-600 text-white border-emerald-600"
+      : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
         }`}
-        title={`${t.mode_simple}`}
+    title={`${t.mode_simple}`}
       >
-        {t.mode_simple}
+    <span className={mode === "simple" ? "hidden sm:inline" : "inline"}>{t.mode_simple}</span>
       </button>
       <button
         onClick={() => setMode("advanced")}
-        className={`px-3 py-1.5 rounded-full text-sm border ${
+    className={`px-3 py-1.5 rounded-full text-sm border ${
           mode === "advanced"
-            ? "bg-emerald-600 text-white border-emerald-600"
-            : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
+      ? "bg-emerald-600 text-white border-emerald-600"
+      : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
         }`}
-        title={`${t.mode_advanced}`}
+    title={`${t.mode_advanced}`}
       >
-        {t.mode_advanced}
+    <span className={mode === "advanced" ? "hidden sm:inline" : "inline"}>{t.mode_advanced}</span>
       </button>
     </div>
   );
@@ -548,23 +555,33 @@ function ModeToggle({ mode, setMode, t }) {
 
 function GliderPicker({ gliders, selectedId, onSelect }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-      {gliders.map((g) => (
-        <button
-          key={g.id}
-          onClick={() => onSelect(g.id)}
-          className={`border rounded-xl px-3 py-2 text-sm text-left transition-all ${
-            selectedId === g.id
-              ? "border-sky-600 ring-2 ring-sky-100 bg-sky-50 dark:bg-sky-900/20"
-              : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700"
-          }`}
-        >
-          <div className="font-medium">{g.display}</div>
-          <div className="text-xs text-slate-500">
-            L/D≈{g.polar_data.best_glide_ratio}
-          </div>
-        </button>
-      ))}
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {gliders.map((g) => {
+        const parts = g.display.split(" ");
+        const primary = parts[0];
+        const secondary = parts.slice(1).join(" ");
+        return (
+          <button
+            key={g.id}
+            onClick={() => onSelect(g.id)}
+            className={`border rounded-xl px-3 py-2 text-left transition-all ${
+              selectedId === g.id
+                ? "border-sky-600 ring-2 ring-sky-100 bg-sky-50 dark:bg-sky-900/20"
+                : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700"
+            }`}
+          >
+            <div className="font-medium text-sm truncate" title={g.display}>
+              {primary}
+              {secondary && (
+                <span className="ml-1 text-[11px] text-slate-500 truncate inline-block max-w-[60%] align-baseline" title={secondary}>
+                  {secondary.replace(/[()]/g, "")}
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-slate-500">L/D≈{g.polar_data.best_glide_ratio}</div>
+          </button>
+        );
+      })}
     </div>
   );
 }
