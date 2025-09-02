@@ -43,6 +43,16 @@ export const I18N = {
     preset_thermal: "Strong Thermal Climb",
 
     wing_loading: "Wing Loading (relative)",
+
+  // Legend / Footer
+  legend_best_air: "Best Glide (air)",
+  legend_best_ground: "Best Glide (ground)",
+  legend_maccready: "MacCready",
+  footer_disclaimer: "Archetypal data; educational use only.",
+  footer_signs: "Headwind and lift are positive.",
+  footer_made_by: "Made by",
+  footer_love_from: "with ❤ from Amsterdam",
+  footer_thanks_to: "Thanks to",
   },
   de: {
     app_title: "Gleitschirm‑Polare Visualizer",
@@ -88,6 +98,16 @@ export const I18N = {
     preset_thermal: "Starkes Thermiksteigen",
 
     wing_loading: "Flächenbelastung (relativ)",
+
+  // Legend / Footer
+  legend_best_air: "Beste Gleitzahl (Luft)",
+  legend_best_ground: "Beste Gleitzahl (Boden)",
+  legend_maccready: "MacCready",
+  footer_disclaimer: "Schematische Daten; nur zu Lehrzwecken.",
+  footer_signs: "Gegenwind und Steigen sind positiv.",
+  footer_made_by: "Erstellt von",
+  footer_love_from: "mit ❤ aus Amsterdam",
+  footer_thanks_to: "Dank an",
   },
   fr: {
     app_title: "Visualiseur de Polaire (Parapente)",
@@ -133,6 +153,16 @@ export const I18N = {
     preset_thermal: "Forte thermique",
 
     wing_loading: "Charge alaire (relative)",
+
+  // Legend / Footer
+  legend_best_air: "Meilleure finesse (air)",
+  legend_best_ground: "Meilleure finesse (sol)",
+  legend_maccready: "MacCready",
+  footer_disclaimer: "Données archétypales; usage éducatif uniquement.",
+  footer_signs: "Vent de face et ascendance sont positifs.",
+  footer_made_by: "Réalisé par",
+  footer_love_from: "avec ❤ depuis Amsterdam",
+  footer_thanks_to: "Merci à",
   },
 };
 

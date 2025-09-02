@@ -170,9 +170,18 @@ export default function GroundViz({
   return (
     <div className="w-full" style={{ minHeight: "280px" }}>
       <div className="text-sm text-slate-600 dark:text-slate-300 mb-2">
-        Glide Ratio: {" "}
-        {((-vzGroundMs) / (vxGroundMs || 1)).toFixed(1) + ":1"}
-        <span className="ml-3">Groundspeed: {(vxGroundMs * 3.6).toFixed(1)} km/h</span>
+        {t.glide_ratio_ground}: {((-vzGroundMs) / (vxGroundMs || 1)).toFixed(1) + ":1"}
+        <span className="ml-3">
+          {t.groundspeed}: {(() => {
+            const gsKmh = vxGroundMs * 3.6;
+            // reuse speed conversion semantics from physics (duplicated minimal logic to avoid import cycle)
+            if (unit === "kmh") return `${gsKmh.toFixed(1)} ${t.unit_kmh}`;
+            if (unit === "ms") return `${(vxGroundMs).toFixed(1)} ${t.unit_ms}`;
+            if (unit === "mph") return `${(gsKmh * 0.6213712).toFixed(1)} ${t.unit_mph}`;
+            if (unit === "kt") return `${(gsKmh * 0.5399568).toFixed(1)} ${t.unit_kt}`;
+            return `${gsKmh.toFixed(1)} ${t.unit_kmh}`;
+          })()}
+        </span>
       </div>
       <canvas
         ref={canvasRef}

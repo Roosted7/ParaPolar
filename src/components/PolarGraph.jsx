@@ -75,7 +75,7 @@ export default function PolarGraph({
       onPointerUp={() => setDragging(false)}
       onPointerLeave={() => setDragging(false)}
     >
-      {/* Grid */}
+  {/* Grid */}
       <rect
         x="0"
         y="0"
@@ -84,7 +84,7 @@ export default function PolarGraph({
         rx="16"
         className="fill-white dark:fill-slate-800"
       />
-  {(mode === "simple" ? [0, yMax] : [0, 1, 2, 3, yMax]).map((i, idx) => (
+  {(mode === "simple" ? [0, 2, yMax] : [0, 1, 2, 3, yMax]).map((i, idx) => (
         <line
           key={`y-${idx}-${i}`}
           x1={margin.left}
@@ -94,7 +94,7 @@ export default function PolarGraph({
           className="stroke-slate-200 dark:stroke-slate-700"
         />
   ))}
-  {(mode === "simple" ? [0, xMax] : [0, 10, 20, 30, 40, 50, 60, xMax]).map((x, idx) => (
+  {(mode === "simple" ? [0, 20, 40, xMax] : [0, 10, 20, 30, 40, 50, 60, xMax]).map((x, idx) => (
         <line
           key={`x-${idx}-${x}`}
           y1={margin.top}
@@ -117,15 +117,18 @@ export default function PolarGraph({
         transform={`translate(14 ${height / 2}) rotate(-90)`}
         className="text-[12px] fill-slate-600 dark:fill-slate-300"
       >
-        {t.axis_sinkrate} (m/s)
+  {t.axis_sinkrate} ({t.unit_ms})
       </text>
       {/* Tick labels */}
       {mode === "simple" ? (
         <>
-          {/* y-axis: 0 at top-left, max sink at bottom-left */}
+          {/* y-axis key labels: 0, -2, -max */}
           <text x={sx(0) - 18} y={sy(0) + 4} className="text-[12px] fill-slate-500">0</text>
+          <text x={sx(0) - 22} y={sy(2) + 4} className="text-[12px] fill-slate-500">-2</text>
           <text x={sx(0) - 28} y={sy(yMax) + 4} className="text-[12px] fill-slate-500">-{yMax.toFixed(1)}</text>
-          {/* x-axis: max speed at bottom-right */}
+          {/* x-axis: origin, mid, max */}
+          <text x={sx(0) - 6} y={height - margin.bottom + 14} className="text-[12px] fill-slate-500">0</text>
+          <text x={sx(40) - 10} y={height - margin.bottom + 14} className="text-[12px] fill-slate-500">40</text>
           <text x={sx(xMax) - 16} y={height - margin.bottom + 14} className="text-[12px] fill-slate-500">{xMax}</text>
         </>
       ) : (
@@ -240,15 +243,15 @@ export default function PolarGraph({
       >
         <LegendItem
           color="stroke-fuchsia-500"
-          label="Best Glide (air)"
+          label={t.legend_best_air}
           dy={0}
         />
         <LegendItem
           color="stroke-emerald-500"
-          label="Best Glide (ground)"
+          label={t.legend_best_ground}
           dy={16}
         />
-        <LegendItem color="stroke-amber-500" label="MacCready" dy={32} />
+        <LegendItem color="stroke-amber-500" label={t.legend_maccready} dy={32} />
       </g>
     </svg>
   );

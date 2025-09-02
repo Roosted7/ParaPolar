@@ -22,6 +22,23 @@ export function convertSpeed(valKmh, unit) {
   }
 }
 
+// Convert a vertical speed given in m/s to the selected unit. While vertical speeds
+// are typically expressed in m/s, the UI may request consistency with user-selected units.
+export function convertVerticalMs(valMs, unit) {
+  switch (unit) {
+    case "ms":
+      return valMs;
+    case "kmh":
+      return valMs * MS_TO_KMH;
+    case "mph":
+      return valMs * MS_TO_KMH * KMH_TO_MPH;
+    case "kt":
+      return valMs * MS_TO_KMH * KMH_TO_KT;
+    default:
+      return valMs;
+  }
+}
+
 // Natural cubic spline (Numerical Recipes style)
 export function buildNaturalCubicSpline(xs, ys) {
   const n = xs.length;

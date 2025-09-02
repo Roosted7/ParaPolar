@@ -10,6 +10,7 @@ import {
   makePolarFunction,
   findBestGlidePoint,
   convertSpeed,
+  convertVerticalMs,
 } from "./lib/physics";
 import PolarGraph from "./components/PolarGraph";
 import GroundViz from "./components/GroundViz";
@@ -187,7 +188,7 @@ export default function App() {
           <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 flex-wrap">
             <h1 className="text-xl md:text-2xl font-semibold">
               <span className="text-sky-600 font-bold">para</span><span className="text-slate-800 dark:text-slate-100 font-bold">polar</span>
-              <span className="ml-2 text-slate-500 text-sm hidden sm:inline">Paraglider Polar & Speed‑to‑Fly Visualizer</span>
+              <span className="ml-2 text-slate-500 text-sm hidden sm:inline">{t.app_title}</span>
             </h1>
             <div className="flex items-center gap-2 flex-wrap">
               <button
@@ -316,7 +317,7 @@ export default function App() {
                     <span className="text-xs text-slate-500 w-10">+5</span>
                   </div>
                   <div className="text-xs text-slate-500">
-                    {t.lift}: +, {t.sink}: − → {liftMs.toFixed(2)} m/s
+                    {t.lift}: +, {t.sink}: − → {liftMs.toFixed(2)} {t.unit_ms}
                   </div>
                 </div>
 
@@ -369,19 +370,28 @@ export default function App() {
                 {/* Advanced extras */}
                 <div>
                   <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                    MacCready (m/s)
+                    MacCready ({t[`unit_${unit === "kmh" ? "ms" : unit}`]})
                   </label>
                   <input
                     type="range"
                     min={0}
-                    max={6}
+                    max={unit === "ms" ? 6 : unit === "kmh" ? 6 : unit === "mph" ? 6 * 2.23694 : 6 * 1.94384}
                     step={0.1}
-                    value={maccreadyMs}
-                    onChange={(e) => setMaccreadyMs(parseFloat(e.target.value))}
+                    value={unit === "ms" ? maccreadyMs : unit === "kmh" ? maccreadyMs : unit === "mph" ? maccreadyMs * 2.23694 : maccreadyMs * 1.94384}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      // store internally in m/s
+                      if (unit === "ms" || unit === "kmh") setMaccreadyMs(val);
+                      else if (unit === "mph") setMaccreadyMs(val / 2.23694);
+                      else if (unit === "kt") setMaccreadyMs(val / 1.94384);
+                    }}
                     className="w-full accent-amber-600"
                   />
                   <div className="text-xs text-slate-500">
-                    {maccreadyMs.toFixed(1)} m/s
+                    {(() => {
+                      const val = unit === "ms" ? maccreadyMs : unit === "kmh" ? maccreadyMs : unit === "mph" ? maccreadyMs * 2.23694 : maccreadyMs * 1.94384;
+                      return `${val.toFixed(1)} ${t[`unit_${unit === "kmh" ? "ms" : unit}`]}`;
+                    })()}
                   </div>
                 </div>
                 <div>
@@ -413,7 +423,7 @@ export default function App() {
 
                     <span className="text-slate-500">{t.sink_rate}</span>
                     <span className="font-medium">
-                      {vzAirEff.toFixed(2)} m/s
+                      {convertVerticalMs(vzAirEff, unit).toFixed(2)} {t[`unit_${unit === "kmh" ? "kmh" : unit}`]}
                     </span>
 
                     <span className="text-slate-500">{t.groundspeed}</span>
@@ -421,8 +431,7 @@ export default function App() {
                       {convertSpeed(
                         airspeedForPhysicsKmh - envWindKmh,
                         unit
-                      ).toFixed(1)}{" "}
-                      {t[`unit_${unit}`]}
+                      ).toFixed(1)} {t[`unit_${unit}`]}
                     </span>
 
                     <span className="text-slate-500 flex items-center gap-2">
@@ -491,10 +500,15 @@ export default function App() {
         </main>
 
         <footer className="max-w-6xl mx-auto px-4 md:px-6 pb-10 text-xs text-slate-500 dark:text-slate-400">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <p>Archetypal data; educational only. Headwind and lift are positive.</p>
+          <div className="flex flex-col items-center gap-1 text-center">
             <p>
-              Made by <a href="https://www.linkedin.com/in/thomas-roos/" className="underline hover:text-slate-700">Thomas Roos</a> with ❤ from Amsterdam. Thanks to Barbara & Régis, and Seb & Arnoud. <a className="underline hover:text-slate-700" href="http://github.com/Roosted7/ParaPolar">GitHub</a>
+              {t.footer_disclaimer} {t.footer_signs}
+            </p>
+            <p>
+              {t.footer_made_by} <a href="https://www.linkedin.com/in/thomas-roos/" className="underline hover:text-slate-700">Thomas Roos</a> {t.footer_love_from}. <a className="underline hover:text-slate-700" href="http://github.com/Roosted7/ParaPolar">GitHub</a>
+            </p>
+            <p>
+              {t.footer_thanks_to}: Barbara & Régis; Seb & Arnoud
             </p>
           </div>
         </footer>
