@@ -31,6 +31,7 @@ export const I18N = {
     groundspeed: "Groundspeed",
     glide_ratio_air: "Glide Ratio (air)",
     glide_ratio_ground: "Glide Ratio (ground)",
+  vario: "Vario",
 
     axis_airspeed: "Airspeed",
     axis_sinkrate: "Sink Rate",
@@ -93,6 +94,7 @@ export const I18N = {
     groundspeed: "Geschwindigkeit über Grund",
     glide_ratio_air: "Gleitzahl (Luft)",
     glide_ratio_ground: "Gleitzahl (Boden)",
+  vario: "Vario",
 
     axis_airspeed: "Fluggeschwindigkeit",
     axis_sinkrate: "Sinkrate",
@@ -155,6 +157,7 @@ export const I18N = {
     groundspeed: "Vitesse sol",
     glide_ratio_air: "Finesse (air)",
     glide_ratio_ground: "Finesse (sol)",
+  vario: "Vario",
 
     axis_airspeed: "Vitesse air",
     axis_sinkrate: "Taux de chute",

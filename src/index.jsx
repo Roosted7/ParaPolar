@@ -58,6 +58,66 @@ export default function App() {
   const [wingLoad, setWingLoad] = useState(1.0);
 
   const glider = GLIDERS.find((g) => g.id === selectedGliderId);
+
+  // ===== Last mode & per-mode snapshots =====
+  const hydratedFromLinkRef = useRef(false);
+  useEffect(() => {
+    // If permalink present, hydrate from it and force advanced
+    try {
+      const url = new URL(window.location.href);
+      const s = url.searchParams.get('s');
+      if (s) {
+        const json = JSON.parse(decodeURIComponent(escape(window.atob(s))));
+        if (json && json.v === 1) {
+          setMode('advanced');
+          if (json.unit) setUnit(json.unit);
+          if (json.gliderId) setSelectedGliderId(json.gliderId);
+          if (Number.isFinite(json.pilotSlider)) setPilotSlider(json.pilotSlider);
+          if (Number.isFinite(json.windKmh)) setWindKmh(json.windKmh);
+          if (Number.isFinite(json.liftMs)) setLiftMs(json.liftMs);
+          if (Number.isFinite(json.maccreadyMs)) setMaccreadyMs(json.maccreadyMs);
+          if (Number.isFinite(json.wingLoad)) setWingLoad(json.wingLoad);
+          setPreset('none');
+          hydratedFromLinkRef.current = true;
+        }
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (hydratedFromLinkRef.current) return;
+    // restore last mode and per-mode state
+    try {
+      const last = localStorage.getItem('pp_last_mode');
+      if (last === 'advanced' || last === 'simple') setMode(last);
+      const advRaw = localStorage.getItem('pp_adv_state_v1');
+      if (advRaw) {
+        const s = JSON.parse(advRaw);
+        if (s) {
+          if (s.unit) setUnit(s.unit);
+          if (s.gliderId) setSelectedGliderId(s.gliderId);
+          if (Number.isFinite(s.pilotSlider)) setPilotSlider(s.pilotSlider);
+          if (Number.isFinite(s.windKmh)) setWindKmh(s.windKmh);
+          if (Number.isFinite(s.liftMs)) setLiftMs(s.liftMs);
+          if (Number.isFinite(s.maccreadyMs)) setMaccreadyMs(s.maccreadyMs);
+          if (Number.isFinite(s.wingLoad)) setWingLoad(s.wingLoad);
+        }
+      }
+      const simpRaw = localStorage.getItem('pp_simple_state_v1');
+      if (simpRaw && last === 'simple') {
+        const s2 = JSON.parse(simpRaw);
+        if (s2) {
+          if (s2.gliderId) setSelectedGliderId(s2.gliderId);
+          if (Number.isFinite(s2.pilotSlider)) setPilotSlider(s2.pilotSlider);
+          if (Number.isFinite(s2.simpleWind)) setSimpleWind(s2.simpleWind);
+        }
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem('pp_last_mode', mode); } catch {}
+  }, [mode]);
   // ===== SEO: canonical + alternates =====
   useEffect(() => {
     try {
@@ -119,21 +179,32 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!didInitRef.current) return; // avoid clobbering restored state on first mount
-    if (mode !== 'advanced') return; // only persist advanced mode to keep simple mode lightweight
-    const state = {
-      mode,
-      unit,
-      gliderId: selectedGliderId,
-      pilotSlider,
-      windKmh,
-      liftMs,
-      preset,
-      maccreadyMs,
-      wingLoad,
-    };
-    try { localStorage.setItem("pp_state_v1", JSON.stringify(state)); } catch {}
-  }, [mode, unit, selectedGliderId, pilotSlider, windKmh, liftMs, preset, maccreadyMs, wingLoad]);
+    if (!didInitRef.current) { didInitRef.current = true; return; }
+    // Persist per-mode snapshots
+    if (mode === 'advanced') {
+      const adv = { v:1, unit, gliderId: selectedGliderId, pilotSlider, windKmh, liftMs, preset, maccreadyMs, wingLoad };
+      try { localStorage.setItem('pp_adv_state_v1', JSON.stringify(adv)); } catch {}
+    } else {
+      const simp = { v:1, gliderId: selectedGliderId, pilotSlider, simpleWind };
+      try { localStorage.setItem('pp_simple_state_v1', JSON.stringify(simp)); } catch {}
+    }
+  }, [mode, unit, selectedGliderId, pilotSlider, windKmh, liftMs, preset, maccreadyMs, wingLoad, simpleWind]);
+
+  // ===== Permalinks for advanced mode =====
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (mode !== 'advanced') {
+        if (url.searchParams.has('s')) { url.searchParams.delete('s'); window.history.replaceState(null, '', url.toString()); }
+        return;
+      }
+      const payload = { v:1, unit, gliderId: selectedGliderId, pilotSlider, windKmh, liftMs, maccreadyMs, wingLoad };
+      const json = JSON.stringify(payload);
+      const b64 = window.btoa(unescape(encodeURIComponent(json)));
+      url.searchParams.set('s', b64);
+      window.history.replaceState(null, '', url.toString());
+    } catch {}
+  }, [mode, unit, selectedGliderId, pilotSlider, windKmh, liftMs, maccreadyMs, wingLoad]);
 
   // ===== Build polar (through air) with wing loading =====
   const polar = useMemo(() => {
@@ -314,18 +385,20 @@ export default function App() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">{t.controls_title}</h2>
               <ResetButton onReset={() => {
-                try { localStorage.removeItem("pp_state_v1"); } catch {}
-                // Reset to sensible defaults
-                setMode("simple");
-                setUnit("kmh");
-                setSelectedGliderId(GLIDERS[1].id);
-                setPilotSlider(50);
-                setSimpleWind(0);
-                setWindKmh(0);
-                setLiftMs(0);
-                setPreset("none");
-                setMaccreadyMs(0);
-                setWingLoad(1.0);
+                if (mode === 'advanced') {
+                  setUnit("kmh");
+                  setPilotSlider(50);
+                  setWindKmh(0);
+                  setLiftMs(0);
+                  setPreset("none");
+                  setMaccreadyMs(0);
+                  setWingLoad(1.0);
+                  try { localStorage.removeItem('pp_adv_state_v1'); } catch {}
+                } else {
+                  setPilotSlider(50);
+                  setSimpleWind(0);
+                  try { localStorage.removeItem('pp_simple_state_v1'); } catch {}
+                }
               }} />
             </div>
 
@@ -616,6 +689,7 @@ export default function App() {
                 airspeedKmh={airspeedForPhysicsKmh}
                 envWindKmh={envWindKmh}
                 envLiftMs={envLiftMs}
+                showVario={mode === "advanced"}
               />
             </div>
           </section>

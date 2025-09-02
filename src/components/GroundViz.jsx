@@ -9,6 +9,7 @@ export default function GroundViz({
   airspeedKmh,
   envWindKmh,
   envLiftMs,
+  showVario,
 }) {
   const canvasRef = useRef(null);
   // Keep animation state in refs to avoid React re-renders each frame
@@ -21,6 +22,18 @@ export default function GroundViz({
   // Hover tooltip for windsock
   const dimsRef = useRef({ w: 0, h: 0, dpr: 1 });
   const hoverRef = useRef({ overSock: false, mx: 0, my: 0 });
+  // Vario audio
+  const audioCtxRef = useRef(null);
+  const gainRef = useRef(null);
+  const beepRef = useRef({ enabled: false, vol: 0.35, nextTime: 0, active: false, endAt: 0 });
+  useEffect(() => {
+    try {
+      const e = localStorage.getItem('pp_vario_enabled');
+      const v = localStorage.getItem('pp_vario_vol');
+      if (e === 'true') beepRef.current.enabled = true;
+      if (v) beepRef.current.vol = Math.max(0, Math.min(1, parseFloat(v)));
+    } catch {}
+  }, []);
 
   // Keep latest params without restarting the loop
   useEffect(() => {
@@ -54,7 +67,7 @@ export default function GroundViz({
     };
     window.addEventListener("resize", onResize);
 
-    function loop(now) {
+  function loop(now) {
       const dt = Math.min(0.05, (now - lastRef.current) / 1000); // seconds
       lastRef.current = now;
 
@@ -106,7 +119,7 @@ export default function GroundViz({
         if (p.y > H) p.y = 0;
       }
 
-      // Persist
+  // Persist
       posRef.current = { x, y };
 
       // Draw
@@ -283,7 +296,7 @@ export default function GroundViz({
         }
       }
 
-      // glider
+  // glider
       const angle = Math.atan2(vzMs, vxMs);
       const arrowLen = Math.max(18, vKmh * 0.6);
       const gliderR = Math.max(4, H * 0.03);
@@ -311,6 +324,44 @@ export default function GroundViz({
       ctx.fill();
       ctx.restore();
 
+      // vario audio scheduling (lift-only gentle beeps)
+      try {
+        const bee = beepRef.current;
+        if (bee.enabled) {
+          const lift = -vzMs; // positive climb when vzMs < 0? Note: vzMs negative for sink. Here we want climb>0 when vzMs>0? We use VzGroundMs; our sign: sink negative, lift positive -> so liftVal = Math.max(0, vzMs)
+          const climb = Math.max(0, vzMs);
+          if (climb > 0.1) {
+            const period = Math.max(0.2, 0.9 - Math.min(0.7, climb * 0.12));
+            const freq = 650 + Math.min(900, climb * 220);
+            if (now / 1000 >= bee.nextTime) {
+              if (!audioCtxRef.current) {
+                audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+                gainRef.current = audioCtxRef.current.createGain();
+                gainRef.current.gain.value = bee.vol * 0.3; // quieter default
+                gainRef.current.connect(audioCtxRef.current.destination);
+              }
+              const ac = audioCtxRef.current;
+              const osc = ac.createOscillator();
+              osc.type = 'square';
+              osc.frequency.setValueAtTime(freq, ac.currentTime);
+              const g = ac.createGain();
+              g.gain.setValueAtTime(0, ac.currentTime);
+              g.connect(gainRef.current);
+              osc.connect(g);
+              const dur = 0.08 + Math.min(0.08, climb * 0.02);
+              const t0 = ac.currentTime;
+              g.gain.linearRampToValueAtTime(bee.vol, t0 + 0.01);
+              g.gain.linearRampToValueAtTime(0, t0 + dur);
+              osc.start();
+              osc.stop(t0 + dur + 0.02);
+              bee.nextTime = now / 1000 + period;
+            }
+          } else {
+            // no tone in sink/calm; let scheduled end naturally
+          }
+        }
+      } catch {}
+
       raf = requestAnimationFrame(loop);
     }
     raf = requestAnimationFrame(loop);
@@ -322,9 +373,9 @@ export default function GroundViz({
 
   return (
     <div className="w-full" style={{ minHeight: "280px" }}>
-      <div className="text-sm text-slate-600 dark:text-slate-300 mb-2">
-        {t.glide_ratio_ground}: {((-vzGroundMs) / (vxGroundMs || 1)).toFixed(1) + ":1"}
-        <span className="ml-3">
+      <div className="text-sm text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-3">
+        <span>{t.glide_ratio_ground}: {((-vzGroundMs) / (vxGroundMs || 1)).toFixed(1) + ":1"}</span>
+        <span>
           {t.groundspeed}: {(() => {
             const gsKmh = vxGroundMs * 3.6;
             // reuse speed conversion semantics from physics (duplicated minimal logic to avoid import cycle)
@@ -334,6 +385,44 @@ export default function GroundViz({
             if (unit === "kt") return `${(gsKmh * 0.5399568).toFixed(1)} ${t.unit_kt}`;
             return `${gsKmh.toFixed(1)} ${t.unit_kmh}`;
           })()}
+        </span>
+        {showVario && (
+          <span className="ml-2">{t.vario}: {(() => {
+            const v = vzGroundMs; // m/s (lift positive)
+            return `${v.toFixed(2)} ${t.unit_ms}`;
+          })()}</span>
+        )}
+        <span className="ml-auto flex items-center gap-2">
+          {showVario && (
+          <button
+            title="Vario audio on/off"
+            className="px-2 py-1 rounded-full border border-slate-300 dark:border-slate-600"
+            onClick={() => {
+              const b = beepRef.current; b.enabled = !b.enabled;
+              try { localStorage.setItem('pp_vario_enabled', b.enabled ? 'true' : 'false'); } catch {}
+              if (!b.enabled && audioCtxRef.current) {
+                // optionally suspend to save power
+                audioCtxRef.current.suspend && audioCtxRef.current.suspend();
+              } else if (b.enabled && audioCtxRef.current) {
+                audioCtxRef.current.resume && audioCtxRef.current.resume();
+              }
+            }}
+          >{beepRef.current.enabled ? '🔊' : '🔈'}</button>)}
+          {showVario && (
+          <input
+            title="Vario volume"
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            defaultValue={beepRef.current.vol}
+            onChange={(e) => {
+              const v = Math.max(0, Math.min(1, parseFloat(e.target.value)));
+              beepRef.current.vol = v; try { localStorage.setItem('pp_vario_vol', String(v)); } catch {}
+              if (gainRef.current) gainRef.current.gain.value = v * 0.3;
+            }}
+            className="w-24 accent-emerald-600"
+          />)}
         </span>
       </div>
       <canvas
