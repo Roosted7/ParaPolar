@@ -153,7 +153,7 @@ export default function PolarGraph({
           strokeDasharray="6 4"
         />
       )}
-      {bestGround && (
+  {bestGround && bestGround.vz < 0 && (
         <line
           x1={sx(envWindKmh)}
           y1={sy(0)}
@@ -163,10 +163,10 @@ export default function PolarGraph({
           strokeDasharray="6 4"
         />
       )}
-      {bestMacCready && (
+    {bestMacCready && bestMacCready.vz < 0 && (
         <line
           x1={sx(envWindKmh)}
-          y1={sy(-maccreadyMs)}
+      y1={sy(0)}
           x2={sx(bestMacCready.vx)}
           y2={sy(-bestMacCready.vz)}
           className="stroke-amber-500"
