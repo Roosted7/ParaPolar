@@ -112,7 +112,8 @@ export default function App() {
       : displaySpeedKmh;
 
   const vxGroundMs = (airspeedForPhysicsKmh - envWindKmh) * KMH_TO_MS;
-  const vzGroundMs = vzAirEff - envLiftMs;
+  // Lift (>0) reduces sink → add to vz (which is typically negative)
+  const vzGroundMs = vzAirEff + envLiftMs;
 
   const GR_ground = vxGroundMs > 0 ? -vzGroundMs / vxGroundMs : 0;
   const GR_air =
@@ -246,7 +247,7 @@ export default function App() {
                   {t.wind}
                 </label>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-slate-500 w-24 text-right">
+                  <span className="text-xs text-slate-500 w-24">
                     {t.simple_wind_left}
                   </span>
                   <input
@@ -430,7 +431,9 @@ export default function App() {
                       {t.glide_ratio_ground}
                     </span>
                     <span className="font-medium">
-                      {GR_ground > 0 ? GR_ground.toFixed(1) + ":1" : "—"}
+                      {vxGroundMs > 0 && vzGroundMs < 0
+                        ? (-vzGroundMs / vxGroundMs).toFixed(1) + ":1"
+                        : "—"}
                     </span>
                   </div>
                 </div>
