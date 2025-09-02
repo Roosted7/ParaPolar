@@ -5,6 +5,7 @@ export default function PolarGraph({
   t,
   unit,
   lang,
+  mode,
   polar,
   flightMode,
   displaySpeedKmh,
@@ -20,6 +21,7 @@ export default function PolarGraph({
 }) {
   const svgRef = useRef(null);
   const [dragging, setDragging] = useState(false);
+  const grabOffsetRef = useRef(0);
 
   const margin = { top: 24, right: 24, bottom: 36, left: 44 };
   const width = 720,
@@ -55,9 +57,10 @@ export default function PolarGraph({
     if (!dragging) return;
     const rect = svgRef.current.getBoundingClientRect();
     const px = e.clientX - rect.left;
+    const pxAdj = px - grabOffsetRef.current;
     const v =
       xMin +
-      ((px - margin.left) / (width - margin.left - margin.right)) *
+      ((pxAdj - margin.left) / (width - margin.left - margin.right)) *
         (xMax - xMin);
     const vClamped = clamp(v, stallX, vmaxX);
     onScrubSpeed(vClamped);
@@ -81,9 +84,12 @@ export default function PolarGraph({
         rx="16"
         className="fill-white dark:fill-slate-800"
       />
-      {[0, 1, 2, 3, 4].map((i) => (
+      {(mode === "simple"
+        ? [0, yMax]
+        : [0, 1, 2, 3, yMax]
+      ).map((i, idx) => (
         <line
-          key={i}
+          key={`y-${idx}-${i}`}
           x1={margin.left}
           x2={width - margin.right}
           y1={sy(i)}
@@ -91,9 +97,9 @@ export default function PolarGraph({
           className="stroke-slate-200 dark:stroke-slate-700"
         />
       ))}
-      {[0, 10, 20, 30, 40, 50, 60, 70].map((x) => (
+      {(mode === "simple" ? [0, xMax] : [0, 10, 20, 30, 40, 50, 60, xMax]).map((x, idx) => (
         <line
-          key={x}
+          key={`x-${idx}-${x}`}
           y1={margin.top}
           y2={height - margin.bottom}
           x1={sx(x)}
@@ -116,6 +122,14 @@ export default function PolarGraph({
       >
         {t.axis_sinkrate} (m/s)
       </text>
+      {/* Minimal tick labels in simple mode */}
+      {mode === "simple" && (
+        <>
+          <text x={sx(0)} y={sy(0) - 4} className="text-[12px] fill-slate-500">0</text>
+          <text x={sx(0)} y={sy(yMax) - 4} className="text-[12px] fill-slate-500">-{yMax.toFixed(1)}</text>
+          <text x={sx(xMax) - 16} y={height - margin.bottom + 14} className="text-[12px] fill-slate-500">{xMax}</text>
+        </>
+      )}
 
       {/* Valid polar */}
       <path
@@ -174,19 +188,45 @@ export default function PolarGraph({
         />
       )}
 
+      {/* Current GR (air) line from origin to active point */}
+      <line
+        x1={sx(0)}
+        y1={sy(0)}
+        x2={sx(displaySpeedKmh)}
+        y2={sy(-polar.f(displaySpeedKmh))}
+        className="stroke-slate-400"
+        strokeDasharray="4 4"
+      />
+
       {/* Active point */}
       <circle
         cx={sx(displaySpeedKmh)}
         cy={sy(-polar.f(displaySpeedKmh))}
         r={6}
         className="fill-sky-600 stroke-white dark:stroke-slate-900"
-        onPointerDown={() => setDragging(true)}
+        onPointerDown={(e) => {
+          const rect = svgRef.current.getBoundingClientRect();
+          const px = e.clientX - rect.left;
+          grabOffsetRef.current = px - sx(displaySpeedKmh);
+          setDragging(true);
+        }}
       />
+
+      {/* Intersection markers */}
+      {bestAir && (
+        <circle cx={sx(bestAir.vx)} cy={sy(-bestAir.vz)} r={4} className="fill-fuchsia-500" />
+      )}
+      {bestGround && bestGround.vz < 0 && (
+        <rect x={sx(bestGround.vx) - 4} y={sy(-bestGround.vz) - 4} width={8} height={8} className="fill-emerald-500" />
+      )}
+      {bestMacCready && bestMacCready.vz < 0 && (
+        <path d={`M ${sx(bestMacCready.vx)} ${sy(-bestMacCready.vz) - 5} L ${sx(bestMacCready.vx) - 5} ${sy(-bestMacCready.vz) + 4} L ${sx(bestMacCready.vx) + 5} ${sy(-bestMacCready.vz) + 4} Z`} className="fill-amber-500" />
+      )}
 
       {/* Legend */}
       <g
         transform={`translate(${width - 190},${margin.top + 6})`}
-        className="text-[11px]"
+        className="text-[12px]"
       >
         <LegendItem
           color="stroke-fuchsia-500"
