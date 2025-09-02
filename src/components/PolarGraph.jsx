@@ -70,7 +70,7 @@ export default function PolarGraph({
     <svg
       ref={svgRef}
       viewBox={`0 0 ${width} ${height}`}
-      className="w-full h-[340px] select-none"
+      className="w-full h-56 sm:h-64 md:h-72 lg:h-80 select-none"
       onPointerMove={onPointer}
       onPointerUp={() => setDragging(false)}
       onPointerLeave={() => setDragging(false)}

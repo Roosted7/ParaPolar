@@ -168,7 +168,7 @@ export default function GroundViz({
   }, []);
 
   return (
-    <div className="w-full" style={{ minHeight: "360px" }}>
+    <div className="w-full" style={{ minHeight: "280px" }}>
       <div className="text-sm text-slate-600 dark:text-slate-300 mb-2">
         Glide Ratio: {" "}
         {vxGroundMs > 0 && vzGroundMs < 0
