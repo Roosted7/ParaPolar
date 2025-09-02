@@ -71,8 +71,18 @@ export default function GroundViz({
 
       const margin = 40;
       if (x > W + margin || gy < -margin || gy >= groundY) {
-        x = -20;
-        y = 120; // respawn from left
+        // Determine respawn altitude heuristically from last exit
+        // If exited at ground or strong sink, start higher; if exited at top or strong lift, start lower
+        const strongLift = lMs > 1.5;
+        const strongSink = lMs < -1.5;
+        x = -20; // come in from left
+        if (gy >= groundY || strongSink) {
+          y = Math.min(groundY - 10, 160); // start higher to show more glide
+        } else if (gy < -margin || strongLift) {
+          y = 60; // start lower when lift is high so path stays visible
+        } else {
+          y = 120;
+        }
       }
 
       // Wind & lift particles
@@ -107,13 +117,16 @@ export default function GroundViz({
       }
       ctx.stroke();
 
-      // particles
-      ctx.strokeStyle = "rgba(59,130,246,0.5)";
-      ctx.lineWidth = 1.5;
+      // particles (visibility scales with wind magnitude; size increases slightly with speed)
+      const windMag = Math.abs(wKmh);
+      const baseAlpha = Math.min(0.8, 0.25 + windMag * 0.02);
+      const segScale = 0.05 + Math.min(0.08, windMag * 0.002);
+      ctx.strokeStyle = `rgba(59,130,246,${baseAlpha.toFixed(3)})`;
+      ctx.lineWidth = 1.2 + Math.min(1.0, windMag * 0.03);
       for (const p of parts) {
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x - windVx * 0.06, p.y - liftVy * 0.06);
+        ctx.lineTo(p.x - windVx * segScale, p.y - liftVy * segScale);
         ctx.stroke();
       }
 
