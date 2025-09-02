@@ -1,0 +1,567 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { I18N, detectLang } from "./lib/i18n";
+import { GLIDERS } from "./data/gliders";
+import {
+  KMH_TO_MS,
+  MS_TO_KMH,
+  clamp,
+  buildNaturalCubicSpline,
+  deriveStallPoint,
+  makePolarFunction,
+  findBestGlidePoint,
+  convertSpeed,
+} from "./lib/physics";
+import PolarGraph from "./components/PolarGraph";
+import GroundViz from "./components/GroundViz";
+
+export default function App() {
+  // ===== i18n & theme =====
+  const [lang, setLang] = useState(detectLang());
+  const t = I18N[lang];
+  const [dark, setDark] = useState(false);
+
+  // ===== UI state =====
+  const [mode, setMode] = useState("simple"); // simple | advanced
+  const [unit, setUnit] = useState("kmh");
+  const [selectedGliderId, setSelectedGliderId] = useState(GLIDERS[1].id); // default EN-A
+  const [pilotSlider, setPilotSlider] = useState(50); // 0..120 (0 deep stall, 50 trim, 100 max, 120 overspeed)
+
+  // Simple mode wind knob (-1..1). Left=headwind, right=tailwind.
+  const [simpleWind, setSimpleWind] = useState(0);
+
+  // Advanced environment
+  const [windKmh, setWindKmh] = useState(0); // + headwind, − tailwind
+  const [liftMs, setLiftMs] = useState(0); // + lift, − sink
+
+  const [preset, setPreset] = useState("none");
+  const [maccreadyMs, setMaccreadyMs] = useState(0);
+  const [wingLoad, setWingLoad] = useState(1.0);
+
+  const glider = GLIDERS.find((g) => g.id === selectedGliderId);
+
+  // ===== Build polar (through air) with wing loading =====
+  const polar = useMemo(() => {
+    const s = Math.sqrt(wingLoad);
+    const pd = glider.polar_data;
+    const stall = deriveStallPoint(pd.min_sink_speed_kmh, pd.min_sink_rate_ms);
+    const anchors = [
+      { x: stall.stallSpeed * s, y: stall.stallSink * s },
+      { x: pd.min_sink_speed_kmh * s, y: pd.min_sink_rate_ms * s },
+      { x: pd.trim_speed_kmh * s, y: pd.trim_sink_rate_ms * s },
+      { x: pd.max_speed_kmh * s, y: pd.max_speed_sink_rate_ms * s },
+    ].sort((a, b) => a.x - b.x);
+    return {
+      f: makePolarFunction(anchors),
+      range: [anchors[0].x, anchors[anchors.length - 1].x],
+      anchors,
+    };
+  }, [glider, wingLoad]);
+
+  // ===== Map pilot slider to speed incl. invalid regions =====
+  const sWL = Math.sqrt(wingLoad);
+  const stallX = polar.anchors[0].x;
+  const trimX = glider.polar_data.trim_speed_kmh * sWL;
+  const vmaxX = polar.anchors[polar.anchors.length - 1].x;
+  const deepStallX = Math.max(5, stallX - 6);
+  const overSpeedX = vmaxX + 6;
+
+  const desiredSpeedKmh = useMemo(() => {
+    const ps = pilotSlider;
+    if (ps <= 25) {
+      const t = ps / 25; // deep stall -> stall
+      return deepStallX + (stallX - deepStallX) * t;
+    } else if (ps <= 50) {
+      const t = (ps - 25) / 25; // stall -> trim
+      return stallX + (trimX - stallX) * t;
+    } else if (ps <= 100) {
+      const t = (ps - 50) / 50; // trim -> max
+      return trimX + (vmaxX - trimX) * t;
+    } else {
+      const t = (ps - 100) / 20; // max -> overspeed
+      return vmaxX + (overSpeedX - vmaxX) * t;
+    }
+  }, [pilotSlider, deepStallX, stallX, trimX, vmaxX, overSpeedX]);
+
+  const flightMode =
+    desiredSpeedKmh < stallX
+      ? "stall"
+      : desiredSpeedKmh > vmaxX
+      ? "collapse"
+      : "normal";
+  const displaySpeedKmh = clamp(desiredSpeedKmh, stallX, vmaxX);
+
+  // ===== Environment resolve =====
+  const envWindKmh = mode === "simple" ? -simpleWind * 20 : windKmh; // left=headwind(+)
+  const envLiftMs = mode === "simple" ? 0 : liftMs; // simple hides vertical motion
+
+  // ===== Core kinematics =====
+  const vzAirMs = polar.f(displaySpeedKmh);
+  const STALL_DROP = -6.0;
+  const COLLAPSE_DROP = -8.0;
+  const vzAirEff =
+    flightMode === "stall"
+      ? STALL_DROP
+      : flightMode === "collapse"
+      ? COLLAPSE_DROP
+      : vzAirMs;
+  const airspeedForPhysicsKmh =
+    flightMode === "stall"
+      ? Math.max(0, displaySpeedKmh * 0.3)
+      : flightMode === "collapse"
+      ? Math.max(0, displaySpeedKmh * 0.6)
+      : displaySpeedKmh;
+
+  const vxGroundMs = (airspeedForPhysicsKmh - envWindKmh) * KMH_TO_MS;
+  const vzGroundMs = vzAirEff - envLiftMs;
+
+  const GR_ground = vxGroundMs > 0 ? -vzGroundMs / vxGroundMs : 0;
+  const GR_air =
+    displaySpeedKmh > 0 ? -vzAirEff / (displaySpeedKmh * KMH_TO_MS) : 0;
+
+  // ===== Best glide tangents =====
+  const bestAir = useMemo(
+    () =>
+      findBestGlidePoint({
+        fPolarMsAtKmh: polar.f,
+        speedRange: polar.range,
+        windKmh: 0,
+        liftMs: 0,
+        step: 0.05,
+      }),
+    [polar]
+  );
+  const bestGround = useMemo(
+    () =>
+      findBestGlidePoint({
+        fPolarMsAtKmh: polar.f,
+        speedRange: polar.range,
+        windKmh: envWindKmh,
+        liftMs: envLiftMs,
+        step: 0.05,
+      }),
+    [polar, envWindKmh, envLiftMs]
+  );
+  const bestMacCready = useMemo(
+    () =>
+      maccreadyMs > 0
+        ? findBestGlidePoint({
+            fPolarMsAtKmh: polar.f,
+            speedRange: polar.range,
+            windKmh: envWindKmh,
+            liftMs: envLiftMs + maccreadyMs,
+            step: 0.05,
+          })
+        : null,
+    [polar, envWindKmh, envLiftMs, maccreadyMs]
+  );
+
+  // ===== Presets (advanced only) =====
+  useEffect(() => {
+    if (mode !== "advanced") return;
+    if (preset === "none") return;
+    if (preset === "calm") {
+      setWindKmh(0);
+      setLiftMs(0);
+      setPilotSlider(50);
+    } else if (preset === "ridge") {
+      setWindKmh(15);
+      setLiftMs(0.5);
+      setPilotSlider(60);
+    } else if (preset === "valley") {
+      setWindKmh(20);
+      setLiftMs(-1.5);
+      setPilotSlider(75);
+    } else if (preset === "thermal") {
+      setWindKmh(5);
+      setLiftMs(4);
+      setPilotSlider(45);
+    }
+  }, [preset, mode]);
+
+  // ===== Render =====
+  return (
+    <div className={`min-h-screen ${dark ? "dark" : ""}`}>
+      <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
+        <header className="px-4 py-3 md:px-6 sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+          <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
+            <h1 className="text-xl md:text-2xl font-semibold">{t.app_title}</h1>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setDark((d) => !d)}
+                className="px-2 py-1 text-sm rounded-full border border-slate-300 dark:border-slate-700"
+                title="Toggle dark mode"
+              >
+                {dark ? "☾" : "☀︎"}
+              </button>
+              <LangSwitcher lang={lang} setLang={setLang} />
+              <ModeToggle mode={mode} setMode={setMode} t={t} />
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-5 gap-6">
+          {/* Controls */}
+          <section className="md:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-5 space-y-5">
+            <h2 className="text-lg font-semibold">{t.controls_title}</h2>
+
+            {/* Glider selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                {t.glider_selection_label}
+              </label>
+              <GliderPicker
+                gliders={GLIDERS}
+                selectedId={selectedGliderId}
+                onSelect={setSelectedGliderId}
+              />
+            </div>
+
+            {/* Pilot control */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                {t.pilot_control}
+              </label>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500">{t.brakes}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={120}
+                  value={pilotSlider}
+                  onChange={(e) => setPilotSlider(parseInt(e.target.value, 10))}
+                  className="w-full accent-sky-600"
+                />
+                <span className="text-xs text-slate-500">{t.speedbar}</span>
+              </div>
+              <div className="text-xs text-center text-slate-500">
+                {t.brakes} • <span className="font-medium">{t.trim}</span> •{" "}
+                {t.speedbar}
+              </div>
+            </div>
+
+            {/* Environment */}
+            {mode === "simple" ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  {t.wind}
+                </label>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-500 w-24 text-right">
+                    {t.simple_wind_left}
+                  </span>
+                  <input
+                    type="range"
+                    min={-1}
+                    max={1}
+                    step={0.01}
+                    value={simpleWind}
+                    onChange={(e) => setSimpleWind(parseFloat(e.target.value))}
+                    className="w-full accent-sky-600"
+                  />
+                  <span className="text-xs text-slate-500 w-24">
+                    {t.simple_wind_right}
+                  </span>
+                </div>
+                <div className="text-center text-xs text-slate-500">
+                  {t.simple_wind_center}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {t.headwind} / {t.tailwind} ({t.unit_kmh})
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-slate-500 w-8 text-right">
+                      -30
+                    </span>
+                    <input
+                      type="range"
+                      min={-30}
+                      max={30}
+                      step={1}
+                      value={windKmh}
+                      onChange={(e) => setWindKmh(parseInt(e.target.value, 10))}
+                      className="w-full accent-sky-600"
+                    />
+                    <span className="text-xs text-slate-500 w-8">+30</span>
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {t.headwind}: +, {t.tailwind}: − → {windKmh.toFixed(1)}{" "}
+                    {t.unit_kmh}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {t.lift_sink} ({t.unit_ms})
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-slate-500 w-10 text-right">
+                      -5
+                    </span>
+                    <input
+                      type="range"
+                      min={-5}
+                      max={5}
+                      step={0.1}
+                      value={liftMs}
+                      onChange={(e) => setLiftMs(parseFloat(e.target.value))}
+                      className="w-full accent-sky-600"
+                    />
+                    <span className="text-xs text-slate-500 w-10">+5</span>
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {t.lift}: +, {t.sink}: − → {liftMs.toFixed(2)} m/s
+                  </div>
+                </div>
+
+                {/* Units & Presets */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      {t.units}
+                    </label>
+                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                      {["kmh", "ms", "mph", "kt"].map((u) => (
+                        <label
+                          key={u}
+                          className={`px-2 py-1 rounded-full border text-sm cursor-pointer ${
+                            unit === u
+                              ? "bg-sky-600 text-white border-sky-600"
+                              : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-100 border-slate-300 dark:border-slate-600"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="unit"
+                            className="hidden"
+                            checked={unit === u}
+                            onChange={() => setUnit(u)}
+                          />
+                          {t[`unit_${u}`]}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      {t.presets}
+                    </label>
+                    <select
+                      value={preset}
+                      onChange={(e) => setPreset(e.target.value)}
+                      className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1 text-sm mt-1 bg-white dark:bg-slate-700"
+                    >
+                      <option value="none">{t.preset_none}</option>
+                      <option value="calm">{t.preset_calm}</option>
+                      <option value="ridge">{t.preset_ridge}</option>
+                      <option value="valley">{t.preset_valley}</option>
+                      <option value="thermal">{t.preset_thermal}</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Advanced extras */}
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    MacCready (m/s)
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={6}
+                    step={0.1}
+                    value={maccreadyMs}
+                    onChange={(e) => setMaccreadyMs(parseFloat(e.target.value))}
+                    className="w-full accent-amber-600"
+                  />
+                  <div className="text-xs text-slate-500">
+                    {maccreadyMs.toFixed(1)} m/s
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {t.wing_loading}
+                  </label>
+                  <input
+                    type="range"
+                    min={0.8}
+                    max={1.2}
+                    step={0.01}
+                    value={wingLoad}
+                    onChange={(e) => setWingLoad(parseFloat(e.target.value))}
+                    className="w-full accent-emerald-600"
+                  />
+                  <div className="text-xs text-slate-500">
+                    {wingLoad.toFixed(2)}×
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
+                  <h3 className="text-sm font-semibold mb-2">{t.data_panel}</h3>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                    <span className="text-slate-500">{t.airspeed}</span>
+                    <span className="font-medium">
+                      {convertSpeed(displaySpeedKmh, unit).toFixed(1)}{" "}
+                      {t[`unit_${unit}`]}
+                    </span>
+
+                    <span className="text-slate-500">{t.sink_rate}</span>
+                    <span className="font-medium">
+                      {vzAirEff.toFixed(2)} m/s
+                    </span>
+
+                    <span className="text-slate-500">{t.groundspeed}</span>
+                    <span className="font-medium">
+                      {convertSpeed(
+                        airspeedForPhysicsKmh - envWindKmh,
+                        unit
+                      ).toFixed(1)}{" "}
+                      {t[`unit_${unit}`]}
+                    </span>
+
+                    <span className="text-slate-500">{t.glide_ratio_air}</span>
+                    <span className="font-medium">
+                      {GR_air > 0 ? GR_air.toFixed(1) + ":1" : "—"}
+                    </span>
+
+                    <span className="text-slate-500">
+                      {t.glide_ratio_ground}
+                    </span>
+                    <span className="font-medium">
+                      {GR_ground > 0 ? GR_ground.toFixed(1) + ":1" : "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Visualizations */}
+          <section className="md:col-span-3 space-y-6">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-4">
+              <PolarGraph
+                t={t}
+                unit={unit}
+                lang={lang}
+                polar={polar}
+                flightMode={flightMode}
+                displaySpeedKmh={displaySpeedKmh}
+                envWindKmh={envWindKmh}
+                envLiftMs={envLiftMs}
+                maccreadyMs={maccreadyMs}
+                bestAir={bestAir}
+                bestGround={bestGround}
+                bestMacCready={bestMacCready}
+                STALL_DROP={STALL_DROP}
+                COLLAPSE_DROP={COLLAPSE_DROP}
+                onScrubSpeed={(v) => {
+                  // map v in [stallX..vmaxX] back to slider 0..120
+                  let ns;
+                  if (v <= trimX)
+                    ns = 25 + (25 * (v - stallX)) / (trimX - stallX);
+                  else ns = 50 + (50 * (v - trimX)) / (vmaxX - trimX);
+                  setPilotSlider(clamp(Math.round(ns), 0, 120));
+                }}
+              />
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-4">
+              <GroundViz
+                t={t}
+                unit={unit}
+                vxGroundMs={vxGroundMs}
+                vzGroundMs={vzGroundMs}
+                airspeedKmh={airspeedForPhysicsKmh}
+                envWindKmh={envWindKmh}
+                envLiftMs={envLiftMs}
+              />
+            </div>
+          </section>
+        </main>
+
+        <footer className="max-w-6xl mx-auto px-4 md:px-6 pb-10 text-xs text-slate-500 dark:text-slate-400">
+          <p>
+            Data are archetypal. Stall/overspeed beyond the valid polar are
+            shown as dotted vertical drops: stall ≈ −6 m/s, frontal collapse ≈
+            −8 m/s. Headwind is positive; lift is positive.
+          </p>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function LangSwitcher({ lang, setLang }) {
+  return (
+    <div className="flex items-center gap-1 rounded-full border border-slate-300 dark:border-slate-700 p-0.5 bg-white dark:bg-slate-800">
+      {["en", "de", "fr"].map((l) => (
+        <button
+          key={l}
+          onClick={() => setLang(l)}
+          className={`px-2 py-1 text-sm rounded-full ${
+            lang === l
+              ? "bg-sky-600 text-white"
+              : "text-slate-700 dark:text-slate-100"
+          }`}
+          title={l.toUpperCase()}
+        >
+          {l.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ModeToggle({ mode, setMode, t }) {
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => setMode("simple")}
+        className={`px-3 py-1.5 rounded-full text-sm border ${
+          mode === "simple"
+            ? "bg-emerald-600 text-white border-emerald-600"
+            : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
+        }`}
+        title={`${t.mode_simple}`}
+      >
+        {t.mode_simple}
+      </button>
+      <button
+        onClick={() => setMode("advanced")}
+        className={`px-3 py-1.5 rounded-full text-sm border ${
+          mode === "advanced"
+            ? "bg-emerald-600 text-white border-emerald-600"
+            : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
+        }`}
+        title={`${t.mode_advanced}`}
+      >
+        {t.mode_advanced}
+      </button>
+    </div>
+  );
+}
+
+function GliderPicker({ gliders, selectedId, onSelect }) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {gliders.map((g) => (
+        <button
+          key={g.id}
+          onClick={() => onSelect(g.id)}
+          className={`border rounded-xl px-3 py-2 text-sm text-left transition-all ${
+            selectedId === g.id
+              ? "border-sky-600 ring-2 ring-sky-100 bg-sky-50 dark:bg-sky-900/20"
+              : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700"
+          }`}
+        >
+          <div className="font-medium">{g.display}</div>
+          <div className="text-xs text-slate-500">
+            L/D≈{g.polar_data.best_glide_ratio}
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
