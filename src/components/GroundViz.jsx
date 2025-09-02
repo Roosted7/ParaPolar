@@ -16,6 +16,8 @@ export default function GroundViz({
   const particlesRef = useRef(makeParticles(120));
   const lastRef = useRef(performance.now());
   const paramsRef = useRef({ vxGroundMs, vzGroundMs, airspeedKmh, envWindKmh, envLiftMs });
+  // Windsock state (angle radians, extension 0..1, phase for flutter)
+  const windsockRef = useRef({ angle: -Math.PI / 2, ext: 0.1, phase: Math.random() * 1000 });
 
   // Keep latest params without restarting the loop
   useEffect(() => {
@@ -130,6 +132,103 @@ export default function GroundViz({
         ctx.stroke();
       }
 
+      // Windsock physics: respond to wind with damping, reduced vertical influence near ground
+      {
+        const poleHeight = 24;
+        const baseX = W - 28;
+        const groundY = H - 40;
+        const baseY = groundY - poleHeight;
+        const verticalFactor = 0.35; // near ground, lift/sink influence is weaker
+        const vx = windVx; // px/s (flow to left if headwind)
+        const vy = liftVy * verticalFactor; // px/s
+        const speed = Math.hypot(vx, vy);
+        // Add droop (gravity) when wind is weak so sock hangs downward
+        const maxRef = (W / 720) * 220; // reference scale for normalization
+        const sNorm = clamp01(speed / (maxRef * 0.5));
+        const droop = (1 - sNorm) * 70; // px/s downward bias when calm
+        const tx = vx;
+        const ty = vy + droop;
+        let targetAngle = Math.atan2(ty, tx);
+        // Smooth angle with shortest-arc interpolation
+        const st = windsockRef.current;
+        const tau = 0.35; // time constant (s)
+        const a = 1 - Math.exp(-dt / Math.max(0.001, tau));
+        st.angle = lerpAngle(st.angle, targetAngle, a);
+        // Extension proportional to wind magnitude with soft cap
+        const L0 = 36; // base sock length
+        const extTarget = clamp01(speed / (maxRef * 0.4));
+        st.ext = st.ext + (extTarget - st.ext) * a;
+        st.phase += dt * (1.5 + sNorm * 2.0);
+
+        // Draw windsock pole
+        ctx.strokeStyle = "#64748b"; // slate-500
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(baseX, groundY);
+        ctx.lineTo(baseX, baseY);
+        ctx.stroke();
+
+        // Sock geometry
+        const L = L0 * (0.6 + 0.4 * st.ext);
+        const rHead = 7;
+        const rTail = Math.max(2, rHead * (0.45 + 0.4 * st.ext));
+        const uX = Math.cos(st.angle);
+        const uY = Math.sin(st.angle);
+        const nX = -uY;
+        const nY = uX;
+        // Small flutter at tail, more when wind is light
+        const flutterAmp = 2.0 * (1 - st.ext);
+        const flutter = Math.sin(st.phase * 2.0) * flutterAmp;
+
+        // Head (near pole) ellipse
+        const headLeftX = baseX + nX * rHead;
+        const headLeftY = baseY + nY * rHead;
+        const headRightX = baseX - nX * rHead;
+        const headRightY = baseY - nY * rHead;
+
+        // Tail (downstream end)
+        const tailCx = baseX + uX * L;
+        const tailCy = baseY + uY * L;
+        const tailLeftX = tailCx + nX * (rTail + flutter);
+        const tailLeftY = tailCy + nY * (rTail + flutter);
+        const tailRightX = tailCx - nX * (rTail - flutter);
+        const tailRightY = tailCy - nY * (rTail - flutter);
+
+        // Draw stripes (red/white) as three tapered bands
+        const bands = [
+          { t0: 0.0, t1: 0.33, color: "#ef4444" }, // red
+          { t0: 0.33, t1: 0.66, color: "#e2e8f0" }, // white-ish (light)
+          { t0: 0.66, t1: 1.0, color: "#ef4444" }, // red
+        ];
+        for (const b of bands) {
+          const a0x = baseX + uX * (L * b.t0);
+          const a0y = baseY + uY * (L * b.t0);
+          const a1x = baseX + uX * (L * b.t1);
+          const a1y = baseY + uY * (L * b.t1);
+          const r0 = rHead + (rTail - rHead) * b.t0;
+          const r1 = rHead + (rTail - rHead) * b.t1;
+          ctx.fillStyle = b.color;
+          ctx.beginPath();
+          ctx.moveTo(a0x + nX * (r0 + flutter * (1 - b.t0)), a0y + nY * (r0 + flutter * (1 - b.t0)));
+          ctx.lineTo(a1x + nX * (r1 + flutter * (1 - b.t1)), a1y + nY * (r1 + flutter * (1 - b.t1)));
+          ctx.lineTo(a1x - nX * (r1 - flutter * (1 - b.t1)), a1y - nY * (r1 - flutter * (1 - b.t1)));
+          ctx.lineTo(a0x - nX * (r0 - flutter * (1 - b.t0)), a0y - nY * (r0 - flutter * (1 - b.t0)));
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        // Outline for clarity
+        ctx.strokeStyle = "#0f172a"; // slate-900
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(headLeftX, headLeftY);
+        ctx.lineTo(headRightX, headRightY);
+        ctx.lineTo(tailRightX, tailRightY);
+        ctx.lineTo(tailLeftX, tailLeftY);
+        ctx.closePath();
+        ctx.stroke();
+      }
+
       // glider
       const angle = Math.atan2(vzMs, vxMs);
       const arrowLen = Math.max(18, vKmh * 0.6);
@@ -202,4 +301,14 @@ function makeParticles(n, w = 720, h = 220) {
   const padY = 0; // allow full vertical coverage
   for (let i = 0; i < n; i++) arr.push({ x: Math.random() * w, y: padY + Math.random() * (h - padY * 2) });
   return arr;
+}
+
+function clamp01(v) {
+  return Math.max(0, Math.min(1, v));
+}
+
+function lerpAngle(a, b, t) {
+  // Normalize to [-PI, PI]
+  let d = ((b - a + Math.PI) % (2 * Math.PI)) - Math.PI;
+  return a + d * t;
 }
