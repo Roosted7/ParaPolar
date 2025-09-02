@@ -25,7 +25,7 @@ export default function GroundViz({
   // Vario audio
   const audioCtxRef = useRef(null);
   const gainRef = useRef(null);
-  const beepRef = useRef({ enabled: false, vol: 0.35, nextTime: 0, active: false, endAt: 0 });
+  const beepRef = useRef({ enabled: false, vol: 0.5, nextTime: 0, active: false, endAt: 0 });
   useEffect(() => {
     try {
       const e = localStorage.getItem('pp_vario_enabled');
@@ -324,20 +324,27 @@ export default function GroundViz({
       ctx.fill();
       ctx.restore();
 
-      // vario audio scheduling (lift-only gentle beeps)
+      // vario audio scheduling (lift & sink):
+      // - lift: faster beeps, higher pitch (current max kept)
+      // - sink: slower beeps, lower pitch
       try {
         const bee = beepRef.current;
         if (bee.enabled) {
-          const lift = -vzMs; // positive climb when vzMs < 0? Note: vzMs negative for sink. Here we want climb>0 when vzMs>0? We use VzGroundMs; our sign: sink negative, lift positive -> so liftVal = Math.max(0, vzMs)
           const climb = Math.max(0, vzMs);
-          if (climb > 0.1) {
-            const period = Math.max(0.2, 0.9 - Math.min(0.7, climb * 0.12));
-            const freq = 650 + Math.min(900, climb * 220);
+          const sink = Math.max(0, -vzMs);
+          if (climb > 0.1 || sink > 0.1) {
+            const isSink = sink > climb;
+            const period = isSink
+              ? Math.min(1.2, 0.7 + Math.min(0.8, sink * 0.25))
+              : Math.max(0.2, 0.9 - Math.min(0.7, climb * 0.12));
+            const freq = isSink
+              ? Math.max(220, 420 - Math.min(200, sink * 60))
+              : 650 + Math.min(900, climb * 220);
             if (now / 1000 >= bee.nextTime) {
               if (!audioCtxRef.current) {
                 audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
                 gainRef.current = audioCtxRef.current.createGain();
-                gainRef.current.gain.value = bee.vol * 0.3; // quieter default
+                gainRef.current.gain.value = bee.vol * 0.3; // master gain
                 gainRef.current.connect(audioCtxRef.current.destination);
               }
               const ac = audioCtxRef.current;
@@ -348,7 +355,7 @@ export default function GroundViz({
               g.gain.setValueAtTime(0, ac.currentTime);
               g.connect(gainRef.current);
               osc.connect(g);
-              const dur = 0.08 + Math.min(0.08, climb * 0.02);
+              const dur = isSink ? 0.06 : (0.08 + Math.min(0.08, climb * 0.02));
               const t0 = ac.currentTime;
               g.gain.linearRampToValueAtTime(bee.vol, t0 + 0.01);
               g.gain.linearRampToValueAtTime(0, t0 + dur);
@@ -395,34 +402,18 @@ export default function GroundViz({
         <span className="ml-auto flex items-center gap-2">
           {showVario && (
           <button
-            title="Vario audio on/off"
-            className="px-2 py-1 rounded-full border border-slate-300 dark:border-slate-600"
+            title={beepRef.current.enabled ? "Mute vario" : "Unmute vario"}
+            className={`px-2 py-1 text-sm rounded-full border transition-colors ${beepRef.current.enabled ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'}`}
             onClick={() => {
               const b = beepRef.current; b.enabled = !b.enabled;
               try { localStorage.setItem('pp_vario_enabled', b.enabled ? 'true' : 'false'); } catch {}
               if (!b.enabled && audioCtxRef.current) {
-                // optionally suspend to save power
                 audioCtxRef.current.suspend && audioCtxRef.current.suspend();
               } else if (b.enabled && audioCtxRef.current) {
                 audioCtxRef.current.resume && audioCtxRef.current.resume();
               }
             }}
-          >{beepRef.current.enabled ? '🔊' : '🔈'}</button>)}
-          {showVario && (
-          <input
-            title="Vario volume"
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            defaultValue={beepRef.current.vol}
-            onChange={(e) => {
-              const v = Math.max(0, Math.min(1, parseFloat(e.target.value)));
-              beepRef.current.vol = v; try { localStorage.setItem('pp_vario_vol', String(v)); } catch {}
-              if (gainRef.current) gainRef.current.gain.value = v * 0.3;
-            }}
-            className="w-24 accent-emerald-600"
-          />)}
+          >{beepRef.current.enabled ? '🔊 On' : '� Off'}</button>)}
         </span>
       </div>
       <canvas
