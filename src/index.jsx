@@ -20,6 +20,25 @@ export default function App() {
   const [lang, setLang] = useState(detectLang());
   const t = I18N[lang];
   const [dark, setDark] = useState(false);
+  // initialize dark from system on first mount
+  const didInitRef = useRef(false);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("pp_dark");
+      if (saved === "true" || saved === "false") {
+        setDark(saved === "true");
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        setDark(true);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem("pp_dark", dark ? "true" : "false"); } catch {}
+    // theme-color dynamic update
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', dark ? '#0f172a' : '#f8fafc');
+  }, [dark]);
 
   // ===== UI state =====
   const [mode, setMode] = useState("simple"); // simple | advanced
@@ -79,37 +98,34 @@ export default function App() {
   // ===== State save/restore (intuitive, with a reset) =====
   useEffect(() => {
     // restore once
-    let restored = false;
     try {
       const raw = localStorage.getItem("pp_state_v1");
       if (raw) {
         const s = JSON.parse(raw);
-        if (s) {
-          if (s.mode) setMode(s.mode);
+        if (s && s.mode === 'advanced') {
+          setMode(s.mode);
           if (s.unit) setUnit(s.unit);
           if (s.gliderId) setSelectedGliderId(s.gliderId);
           if (Number.isFinite(s.pilotSlider)) setPilotSlider(s.pilotSlider);
-          if (Number.isFinite(s.simpleWind)) setSimpleWind(s.simpleWind);
           if (Number.isFinite(s.windKmh)) setWindKmh(s.windKmh);
           if (Number.isFinite(s.liftMs)) setLiftMs(s.liftMs);
           if (s.preset) setPreset(s.preset);
           if (Number.isFinite(s.maccreadyMs)) setMaccreadyMs(s.maccreadyMs);
           if (Number.isFinite(s.wingLoad)) setWingLoad(s.wingLoad);
-          restored = true;
         }
       }
     } catch {}
-    // If nothing restored, leave current defaults
+    didInitRef.current = true;
   }, []);
 
   useEffect(() => {
-    // persist regularly when inputs change
+    if (!didInitRef.current) return; // avoid clobbering restored state on first mount
+    if (mode !== 'advanced') return; // only persist advanced mode to keep simple mode lightweight
     const state = {
       mode,
       unit,
       gliderId: selectedGliderId,
       pilotSlider,
-      simpleWind,
       windKmh,
       liftMs,
       preset,
@@ -117,7 +133,7 @@ export default function App() {
       wingLoad,
     };
     try { localStorage.setItem("pp_state_v1", JSON.stringify(state)); } catch {}
-  }, [mode, unit, selectedGliderId, pilotSlider, simpleWind, windKmh, liftMs, preset, maccreadyMs, wingLoad]);
+  }, [mode, unit, selectedGliderId, pilotSlider, windKmh, liftMs, preset, maccreadyMs, wingLoad]);
 
   // ===== Build polar (through air) with wing loading =====
   const polar = useMemo(() => {
@@ -288,6 +304,15 @@ export default function App() {
               </button>
               <LangSwitcher lang={lang} setLang={setLang} />
               <ModeToggle mode={mode} setMode={setMode} t={t} />
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-5 gap-6">
+          {/* Controls */}
+          <section className="md:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-5 space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">{t.controls_title}</h2>
               <ResetButton onReset={() => {
                 try { localStorage.removeItem("pp_state_v1"); } catch {}
                 // Reset to sensible defaults
@@ -303,13 +328,6 @@ export default function App() {
                 setWingLoad(1.0);
               }} />
             </div>
-          </div>
-        </header>
-
-        <main className="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-5 gap-6">
-          {/* Controls */}
-          <section className="md:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-5 space-y-5">
-            <h2 className="text-lg font-semibold">{t.controls_title}</h2>
 
             {/* Glider selection */}
             <div className="space-y-2">
@@ -389,7 +407,7 @@ export default function App() {
                       max={30}
                       step={1}
                       value={windKmh}
-                      onChange={(e) => setWindKmh(parseInt(e.target.value, 10))}
+                      onChange={(e) => { setWindKmh(parseInt(e.target.value, 10)); setPreset('none'); }}
                       className="w-full accent-sky-600"
                     />
                     <span className="text-xs text-slate-500 w-8">+30</span>
@@ -413,7 +431,7 @@ export default function App() {
                       max={5}
                       step={0.1}
                       value={liftMs}
-                      onChange={(e) => setLiftMs(parseFloat(e.target.value))}
+                      onChange={(e) => { setLiftMs(parseFloat(e.target.value)); setPreset('none'); }}
                       className="w-full accent-sky-600"
                     />
                     <span className="text-xs text-slate-500 w-10">+5</span>
@@ -444,7 +462,7 @@ export default function App() {
                             name="unit"
                             className="hidden"
                             checked={unit === u}
-                            onChange={() => setUnit(u)}
+            onChange={() => { setUnit(u); if (mode === 'advanced') setPreset('none'); }}
                           />
                           {t[`unit_${u}`]}
                         </label>
@@ -475,7 +493,7 @@ export default function App() {
                   <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                     MacCready ({t[`unit_${unit === "kmh" ? "ms" : unit}`]})
                   </label>
-                  <input
+          <input
                     type="range"
                     min={0}
                     max={unit === "ms" ? 6 : unit === "kmh" ? 6 : unit === "mph" ? 6 * 2.23694 : 6 * 1.94384}
@@ -487,6 +505,7 @@ export default function App() {
                       if (unit === "ms" || unit === "kmh") setMaccreadyMs(val);
                       else if (unit === "mph") setMaccreadyMs(val / 2.23694);
                       else if (unit === "kt") setMaccreadyMs(val / 1.94384);
+            setPreset('none');
                     }}
                     className="w-full accent-amber-600"
                   />
@@ -507,7 +526,7 @@ export default function App() {
                     max={1.2}
                     step={0.01}
                     value={wingLoad}
-                    onChange={(e) => setWingLoad(parseFloat(e.target.value))}
+                    onChange={(e) => { setWingLoad(parseFloat(e.target.value)); setPreset('none'); }}
                     className="w-full accent-emerald-600"
                   />
                   <div className="text-xs text-slate-500">
