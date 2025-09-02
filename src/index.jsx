@@ -177,6 +177,14 @@ export default function App() {
       setWindKmh(5);
       setLiftMs(4);
       setPilotSlider(45);
+    } else if (preset === "backwind") {
+      // Backwind Flight: choose a headwind high enough to produce negative groundspeed near 1/3 brakes
+      // Reasoning: With ~25 km/h headwind and +3 m/s lift, most gliders at ~1/3 brakes (just slower than trim)
+      // will have airspeed ~28–32 km/h, yielding groundspeed <= ~5 km/h or negative for slower wings.
+      // Set speedbar slider ~35–40 (approx 1/3 from brakes side).
+      setWindKmh(25);
+      setLiftMs(3);
+      setPilotSlider(26);
     }
   }, [preset, mode]);
 
@@ -184,6 +192,7 @@ export default function App() {
   return (
     <div className={`min-h-screen ${dark ? "dark" : ""}`}>
       <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
+  <CookieBanner t={t} />
         <header className="px-4 py-3 md:px-6 sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-200 dark:border-slate-800">
           <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 flex-wrap">
             <h1 className="text-xl md:text-2xl font-semibold">
@@ -363,6 +372,7 @@ export default function App() {
                       <option value="ridge">{t.preset_ridge}</option>
                       <option value="valley">{t.preset_valley}</option>
                       <option value="thermal">{t.preset_thermal}</option>
+                      <option value="backwind">{t.preset_backwind}</option>
                     </select>
                   </div>
                 </div>
@@ -610,4 +620,55 @@ function GliderPicker({ gliders, selectedId, onSelect }) {
       })}
     </div>
   );
+}
+
+function CookieBanner({ t }) {
+  const [visible, setVisible] = React.useState(false);
+  React.useEffect(() => {
+    try {
+      const v = localStorage.getItem("pp_cookie_consent");
+      setVisible(v !== "accepted" && v !== "declined");
+      if (v === "accepted") enableGA();
+    } catch {}
+  }, []);
+  function accept() {
+    try { localStorage.setItem("pp_cookie_consent", "accepted"); } catch {}
+    setVisible(false);
+    enableGA();
+  }
+  function decline() {
+    try { localStorage.setItem("pp_cookie_consent", "declined"); } catch {}
+    setVisible(false);
+  }
+  if (!visible) return null;
+  return (
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-[92%] sm:w-[28rem] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-3 md:p-4">
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600">🍪</div>
+        <div className="text-sm">
+          <div className="font-medium mb-1">{t.cookie_title}</div>
+          <div className="text-slate-600 dark:text-slate-300">{t.cookie_body}</div>
+          <div className="mt-3 flex gap-2">
+            <button onClick={accept} className="px-3 py-1.5 rounded-full text-sm bg-emerald-600 text-white">{t.cookie_accept}</button>
+            <button onClick={decline} className="px-3 py-1.5 rounded-full text-sm border border-slate-300 dark:border-slate-600">{t.cookie_decline}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function enableGA() {
+  // Draft GA integration: replace GA_MEASUREMENT_ID with your token
+  const id = (window && window.__GA_ID__) || "GA_MEASUREMENT_ID";
+  if (id === "GA_MEASUREMENT_ID") return; // no-op until token is set
+  if (document.getElementById("ga-script")) return;
+  const s1 = document.createElement("script");
+  s1.async = true;
+  s1.src = `https://www.googletagmanager.com/gtag/js?id=${id}`;
+  s1.id = "ga-script";
+  document.head.appendChild(s1);
+  const s2 = document.createElement("script");
+  s2.innerHTML = `window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', '${id}');`;
+  document.head.appendChild(s2);
 }

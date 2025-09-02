@@ -41,6 +41,7 @@ export const I18N = {
     preset_ridge: "Ridge Soaring",
     preset_valley: "Valley Crossing",
     preset_thermal: "Strong Thermal Climb",
+  preset_backwind: "Backwind Flight",
 
     wing_loading: "Wing Loading (relative)",
 
@@ -53,6 +54,12 @@ export const I18N = {
   footer_made_by: "Made by",
   footer_love_from: "with ❤ from Amsterdam",
   footer_thanks_to: "Thanks to",
+
+  // Cookies / GA
+  cookie_title: "Cookies",
+  cookie_body: "We use cookies (Google Analytics) to understand usage and improve this site.",
+  cookie_accept: "Accept",
+  cookie_decline: "Decline",
   },
   de: {
     app_title: "Gleitschirm‑Polare Visualizer",
@@ -96,6 +103,7 @@ export const I18N = {
     preset_ridge: "Hangsoaren",
     preset_valley: "Talsprung",
     preset_thermal: "Starkes Thermiksteigen",
+  preset_backwind: "Rückwärtsflug",
 
     wing_loading: "Flächenbelastung (relativ)",
 
@@ -108,6 +116,12 @@ export const I18N = {
   footer_made_by: "Erstellt von",
   footer_love_from: "mit ❤ aus Amsterdam",
   footer_thanks_to: "Dank an",
+
+  // Cookies / GA
+  cookie_title: "Cookies",
+  cookie_body: "Wir verwenden Cookies (Google Analytics), um die Nutzung zu verstehen und die Seite zu verbessern.",
+  cookie_accept: "Akzeptieren",
+  cookie_decline: "Ablehnen",
   },
   fr: {
     app_title: "Visualiseur de Polaire (Parapente)",
@@ -151,6 +165,7 @@ export const I18N = {
     preset_ridge: "Vol de pente",
     preset_valley: "Traversée de vallée",
     preset_thermal: "Forte thermique",
+  preset_backwind: "Vol en marche arrière",
 
     wing_loading: "Charge alaire (relative)",
 
@@ -163,6 +178,12 @@ export const I18N = {
   footer_made_by: "Réalisé par",
   footer_love_from: "avec ❤ depuis Amsterdam",
   footer_thanks_to: "Merci à",
+
+  // Cookies / GA
+  cookie_title: "Cookies",
+  cookie_body: "Nous utilisons des cookies (Google Analytics) pour comprendre l’usage et améliorer ce site.",
+  cookie_accept: "Accepter",
+  cookie_decline: "Refuser",
   },
 };
 
