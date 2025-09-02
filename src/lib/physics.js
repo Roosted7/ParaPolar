@@ -83,7 +83,8 @@ export function findBestGlidePoint({
 }) {
   let best = null;
   for (let v = speedRange[0]; v <= speedRange[1]; v += step) {
-    const vz = fPolarMsAtKmh(v) - liftMs; // vertical shift by airmass
+  // Vertical shift by airmass: lift (>0) reduces sink, i.e. adds to vz (which is negative for sink)
+  const vz = fPolarMsAtKmh(v) + liftMs;
     const dx = v - windKmh; // horizontal shift by wind (origin moves to +wind,0)
     if (dx <= 0.5) continue;
     const ratio = -vz / dx; // L/D
