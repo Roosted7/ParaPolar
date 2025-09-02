@@ -1,0 +1,17 @@
+name = "parapolar"
+main = "cloudflare_worker_redirects.js"
+compatibility_date = "2024-12-01"
+
+[site]
+bucket = "dist"
+
+routes = [
+  { pattern = "parapolar.com/*", zone_name = "parapolar.com" },
+  { pattern = "www.parapolar.com/*", zone_name = "parapolar.com" },
+  { pattern = "parapolar.fr/*", zone_name = "parapolar.fr" },
+  { pattern = "www.parapolar.fr/*", zone_name = "parapolar.fr" },
+  { pattern = "parapolar.de/*", zone_name = "parapolar.de" },
+  { pattern = "www.parapolar.de/*", zone_name = "parapolar.de" },
+  { pattern = "parapolar.nl/*", zone_name = "parapolar.nl" },
+  { pattern = "www.parapolar.nl/*", zone_name = "parapolar.nl" }
+]
