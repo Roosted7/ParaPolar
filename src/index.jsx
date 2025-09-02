@@ -527,28 +527,40 @@ function LangSwitcher({ lang, setLang }) {
 function ModeToggle({ mode, setMode, t }) {
   return (
     <div className="flex items-center gap-2">
+      {/* Small screens: single toggle showing the other mode to switch to */}
       <button
-        onClick={() => setMode("simple")}
-    className={`px-3 py-1.5 rounded-full text-sm border ${
-          mode === "simple"
-      ? "bg-emerald-600 text-white border-emerald-600"
-      : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
-        }`}
-    title={`${t.mode_simple}`}
+        className="sm:hidden px-3 py-1.5 rounded-full text-sm border bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
+        onClick={() => setMode(mode === "simple" ? "advanced" : "simple")}
+        title={mode === "simple" ? t.mode_advanced : t.mode_simple}
       >
-    <span className={mode === "simple" ? "hidden sm:inline" : "inline"}>{t.mode_simple}</span>
+        {mode === "simple" ? t.mode_advanced : t.mode_simple}
       </button>
-      <button
-        onClick={() => setMode("advanced")}
-    className={`px-3 py-1.5 rounded-full text-sm border ${
-          mode === "advanced"
-      ? "bg-emerald-600 text-white border-emerald-600"
-      : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
-        }`}
-    title={`${t.mode_advanced}`}
-      >
-    <span className={mode === "advanced" ? "hidden sm:inline" : "inline"}>{t.mode_advanced}</span>
-      </button>
+
+      {/* Medium and up: segmented control with clear active/inactive styles */}
+      <div className="hidden sm:flex items-center gap-2">
+        <button
+          onClick={() => setMode("simple")}
+          className={`px-3 py-1.5 rounded-full text-sm border ${
+            mode === "simple"
+              ? "bg-emerald-600 text-white border-emerald-600"
+              : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-100"
+          }`}
+          title={`${t.mode_simple}`}
+        >
+          {t.mode_simple}
+        </button>
+        <button
+          onClick={() => setMode("advanced")}
+          className={`px-3 py-1.5 rounded-full text-sm border ${
+            mode === "advanced"
+              ? "bg-emerald-600 text-white border-emerald-600"
+              : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-100"
+          }`}
+          title={`${t.mode_advanced}`}
+        >
+          {t.mode_advanced}
+        </button>
+      </div>
     </div>
   );
 }
