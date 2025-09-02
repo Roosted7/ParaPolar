@@ -171,9 +171,7 @@ export default function GroundViz({
     <div className="w-full" style={{ minHeight: "280px" }}>
       <div className="text-sm text-slate-600 dark:text-slate-300 mb-2">
         Glide Ratio: {" "}
-        {vxGroundMs > 0 && vzGroundMs < 0
-          ? (-vzGroundMs / vxGroundMs).toFixed(1) + ":1"
-          : "—"}
+        {((-vzGroundMs) / (vxGroundMs || 1)).toFixed(1) + ":1"}
         <span className="ml-3">Groundspeed: {(vxGroundMs * 3.6).toFixed(1)} km/h</span>
       </div>
       <canvas
