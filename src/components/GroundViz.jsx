@@ -15,15 +15,18 @@ export default function GroundViz({
   const posRef = useRef({ x: 30, y: 120 }); // y = altitude pixels above ground line
   const particlesRef = useRef(makeParticles(120));
   const lastRef = useRef(performance.now());
-  const paramsRef = useRef({ vxGroundMs, vzGroundMs, airspeedKmh, envWindKmh, envLiftMs });
+  const paramsRef = useRef({ vxGroundMs, vzGroundMs, airspeedKmh, envWindKmh, envLiftMs, unit, t });
   // Windsock state (angle radians, extension 0..1, phase for flutter)
   const windsockRef = useRef({ angle: -Math.PI / 2, ext: 0.1, phase: Math.random() * 1000 });
+  // Hover tooltip for windsock
+  const dimsRef = useRef({ w: 0, h: 0, dpr: 1 });
+  const hoverRef = useRef({ overSock: false, mx: 0, my: 0 });
 
   // Keep latest params without restarting the loop
   useEffect(() => {
-    paramsRef.current = { vxGroundMs, vzGroundMs, airspeedKmh, envWindKmh, envLiftMs };
+    paramsRef.current = { vxGroundMs, vzGroundMs, airspeedKmh, envWindKmh, envLiftMs, unit, t };
     lastRef.current = performance.now();
-  }, [vxGroundMs, vzGroundMs, airspeedKmh, envWindKmh, envLiftMs]);
+  }, [vxGroundMs, vzGroundMs, airspeedKmh, envWindKmh, envLiftMs, unit, t]);
 
   useEffect(() => {
     let raf;
@@ -37,6 +40,7 @@ export default function GroundViz({
       canvas.width = Math.round(cssW * dpr);
       canvas.height = Math.round(cssH * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      dimsRef.current = { w: cssW, h: cssH, dpr };
       // regenerate particles to fill new size (keep previous count)
       const prev = particlesRef.current;
       particlesRef.current = makeParticles(prev.length, cssW, cssH);
@@ -72,12 +76,14 @@ export default function GroundViz({
       const gy = groundY - y; // canvas y position
 
       const margin = 40;
-      if (x > W + margin || gy < -margin || gy >= groundY) {
+      if (x > W + margin || x < -margin || gy < -margin || gy >= groundY) {
         // Determine respawn altitude heuristically from last exit
         // If exited at ground or strong sink, start higher; if exited at top or strong lift, start lower
         const strongLift = lMs > 1.5;
         const strongSink = lMs < -1.5;
-        x = -20; // come in from left
+        // Spawn side based on current ground speed direction
+        const goingRight = vxMs >= 0;
+        x = goingRight ? -20 : W + 20;
         if (gy >= groundY || strongSink) {
           y = Math.min(groundY - 10, 160); // start higher to show more glide
         } else if (gy < -margin || strongLift) {
@@ -132,7 +138,7 @@ export default function GroundViz({
         ctx.stroke();
       }
 
-      // Windsock physics: respond to wind with damping, reduced vertical influence near ground
+  // Windsock physics: respond to wind with damping, reduced vertical influence near ground
       {
         const poleHeight = 24;
         const baseX = W - 28;
@@ -227,6 +233,54 @@ export default function GroundViz({
         ctx.lineTo(tailLeftX, tailLeftY);
         ctx.closePath();
         ctx.stroke();
+
+        // Tooltip on hover near windsock
+        if (hoverRef.current.overSock) {
+          const { unit, t } = paramsRef.current;
+          const magKmh = Math.abs(wKmh);
+          let val, uLabel;
+          if (unit === "kmh") {
+            val = magKmh; uLabel = t.unit_kmh;
+          } else if (unit === "ms") {
+            val = magKmh * KMH_TO_MS; uLabel = t.unit_ms;
+          } else if (unit === "mph") {
+            val = magKmh * 0.6213712; uLabel = t.unit_mph;
+          } else if (unit === "kt") {
+            val = magKmh * 0.5399568; uLabel = t.unit_kt;
+          } else {
+            val = magKmh; uLabel = t.unit_kmh;
+          }
+          const dirLabel = wKmh >= 0 ? t.headwind : t.tailwind;
+          const text = `${t.wind}: ${val.toFixed(1)} ${uLabel} (${dirLabel})`;
+          ctx.save();
+          ctx.font = '12px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial';
+          const pad = 6;
+          const metrics = ctx.measureText(text);
+          const tw = metrics.width + pad * 2;
+          const th = 20;
+          let bx = baseX - tw - 8;
+          let by = baseY - (th + 8);
+          if (bx < 6) bx = 6;
+          if (by < 6) by = baseY + 8;
+          // rounded rect
+          const r = 6;
+          ctx.beginPath();
+          ctx.moveTo(bx + r, by);
+          ctx.lineTo(bx + tw - r, by);
+          ctx.quadraticCurveTo(bx + tw, by, bx + tw, by + r);
+          ctx.lineTo(bx + tw, by + th - r);
+          ctx.quadraticCurveTo(bx + tw, by + th, bx + tw - r, by + th);
+          ctx.lineTo(bx + r, by + th);
+          ctx.quadraticCurveTo(bx, by + th, bx, by + th - r);
+          ctx.lineTo(bx, by + r);
+          ctx.quadraticCurveTo(bx, by, bx + r, by);
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(15,23,42,0.9)';
+          ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(text, bx + pad, by + 13);
+          ctx.restore();
+        }
       }
 
       // glider
@@ -284,6 +338,21 @@ export default function GroundViz({
       </div>
       <canvas
         ref={canvasRef}
+        onPointerMove={(e) => {
+          const c = canvasRef.current;
+          if (!c) return;
+          const rect = c.getBoundingClientRect();
+          const mx = e.clientX - rect.left;
+          const my = e.clientY - rect.top;
+          const { w: cssW, h: cssH } = dimsRef.current;
+          const groundY = cssH - 40;
+          const baseX = cssW - 28;
+          const baseY = groundY - 24;
+          // Simple hit box around sock area
+          const hit = mx >= baseX - 100 && mx <= baseX + 30 && my >= baseY - 60 && my <= baseY + 60;
+          hoverRef.current = { overSock: !!hit, mx, my };
+        }}
+        onPointerLeave={() => { hoverRef.current = { overSock: false, mx: 0, my: 0 }; }}
         style={{
           width: "100%",
           height: "calc(100% - 36px)",
