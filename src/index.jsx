@@ -19,23 +19,17 @@ export default function App() {
   // ===== i18n & theme =====
   const [lang, setLang] = useState(detectLang());
   const t = I18N[lang];
-  const [dark, setDark] = useState(false);
-  // initialize dark from system on first mount
-  const didInitRef = useRef(false);
-  useEffect(() => {
+  const [dark, setDark] = useState(() => {
     try {
-      const saved = localStorage.getItem("pp_dark");
-      if (saved === "true" || saved === "false") {
-        setDark(saved === "true");
-      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        setDark(true);
-      }
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      // Read what the inline script already applied to <html>
+      return document.documentElement.classList.contains('dark');
+    } catch { return false; }
+  });
   useEffect(() => {
-    try { localStorage.setItem("pp_dark", dark ? "true" : "false"); } catch {}
-    // theme-color dynamic update
+    // Keep <html> in sync as the single source of truth
+    const root = document.documentElement;
+    root.classList.toggle('dark', !!dark);
+    try { localStorage.setItem('pp_dark', dark ? 'true' : 'false'); } catch {}
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', dark ? '#0f172a' : '#f8fafc');
   }, [dark]);
@@ -156,6 +150,7 @@ export default function App() {
   }, [lang]);
 
   // ===== State save/restore (intuitive, with a reset) =====
+  const didInitRef = useRef(false);
   useEffect(() => {
     // restore once
     try {
@@ -356,7 +351,7 @@ export default function App() {
 
   // ===== Render =====
   return (
-    <div className={`min-h-screen ${dark ? "dark" : ""}`}>
+    <div className="min-h-screen">
       <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
   <CookieBanner t={t} />
         <header className="px-4 py-3 md:px-6 sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-200 dark:border-slate-800">
