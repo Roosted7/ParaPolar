@@ -17,8 +17,13 @@ export default {
       return withLangRedirect(target.toString(), "en");
     }
 
-    // Default: let Assets handle static; fall back to SPA index.html
-    return env.ASSETS.fetch(request);
+    // Let Cloudflare serve static when available (prod builds provide ASSETS)
+    if (env && (env as any).ASSETS && typeof (env as any).ASSETS.fetch === 'function') {
+      // @ts-ignore - runtime provided by Cloudflare
+      return env.ASSETS.fetch(request);
+    }
+    // Dev falls back to Vite server
+    return new Response('Not Found', { status: 404 });
   },
 } satisfies ExportedHandler<Env>;
 
