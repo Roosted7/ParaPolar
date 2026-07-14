@@ -15,13 +15,14 @@
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <script>
-      // Apply saved theme ASAP to avoid FOUC; persist manual overrides
+      // Apply saved theme ASAP to avoid FOUC; persist manual overrides.
+      // ?theme=light|dark overrides (used by embeds and screenshot tooling).
       try {
+        const themeParam = new URLSearchParams(location.search).get('theme');
         const saved = localStorage.getItem('pp_dark');
         const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (saved === 'true' || (saved == null && prefersDark)) {
-          document.documentElement.classList.add('dark');
-        }
+        const dark = themeParam ? themeParam === 'dark' : saved === 'true' || (saved == null && prefersDark);
+        if (dark) document.documentElement.classList.add('dark');
       } catch {}
     </script>
   </head>

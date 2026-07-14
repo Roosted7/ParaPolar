@@ -66,7 +66,7 @@ export default function PolarGraph({
     <svg
       ref={svgRef}
       viewBox={`0 0 ${width} ${height}`}
-      className="w-full h-56 sm:h-64 md:h-72 lg:h-80 select-none"
+      className="w-full h-auto select-none"
       onPointerMove={onPointer}
       onPointerUp={() => setDragging(false)}
       onPointerLeave={() => setDragging(false)}
@@ -74,7 +74,7 @@ export default function PolarGraph({
       aria-label={`${t.axis_airspeed} / ${t.axis_sinkrate}`}
     >
       {/* Background + grid */}
-      <rect x="0" y="0" width={width} height={height} rx="16" className="fill-white dark:fill-slate-800" />
+      <rect x="0" y="0" width={width} height={height} rx="10" className="fill-ink/40" />
       {yTicks.map((v) => (
         <line
           key={`y-${v}`}
@@ -82,7 +82,7 @@ export default function PolarGraph({
           x2={width - margin.right}
           y1={sy(v)}
           y2={sy(v)}
-          className="stroke-slate-200 dark:stroke-slate-700"
+          className="stroke-white/10"
         />
       ))}
       {xTicks.map((v) => (
@@ -92,24 +92,24 @@ export default function PolarGraph({
           y2={height - margin.bottom}
           x1={sx(v)}
           x2={sx(v)}
-          className="stroke-slate-100 dark:stroke-slate-700"
+          className="stroke-white/5"
         />
       ))}
 
       {/* Axis labels */}
-      <text x={width / 2} y={height - 8} className="text-[12px] fill-slate-600 dark:fill-slate-300">
+      <text x={width / 2} y={height - 8} className="text-[12px] font-data fill-slate-300">
         {t.axis_airspeed} (km/h)
       </text>
       <text
         transform={`translate(14 ${height / 2}) rotate(-90)`}
-        className="text-[12px] fill-slate-600 dark:fill-slate-300"
+        className="text-[12px] font-data fill-slate-300"
       >
         {t.axis_sinkrate} ({t.unit_ms})
       </text>
 
       {/* Tick labels */}
       {yTicks.map((v) => (
-        <text key={`yl-${v}`} x={sx(0) - 28} y={sy(v) + 4} className="text-[12px] fill-slate-500">
+        <text key={`yl-${v}`} x={sx(0) - 28} y={sy(v) + 4} className="text-[11px] font-data fill-slate-400">
           {v === 0 ? "0" : `-${v}`}
         </text>
       ))}
@@ -118,14 +118,14 @@ export default function PolarGraph({
           key={`xl-${v}`}
           x={sx(v) - 6}
           y={height - margin.bottom + 14}
-          className="text-[12px] fill-slate-500"
+          className="text-[11px] font-data fill-slate-400"
         >
           {v}
         </text>
       ))}
 
       {/* Valid polar */}
-      <path d={validPath} className="fill-none stroke-sky-600" strokeWidth="2" />
+      <path d={validPath} className="fill-none stroke-skywash-bright" strokeWidth="2" />
 
       {/* Invalid regions: vertical dotted drops at stall and overspeed */}
       <line
@@ -133,7 +133,7 @@ export default function PolarGraph({
         x2={sx(stallX)}
         y1={sy(0)}
         y2={sy(-STALL_DROP)}
-        className="stroke-slate-500"
+        className="stroke-rose"
         strokeDasharray="4 4"
       />
       <line
@@ -141,7 +141,7 @@ export default function PolarGraph({
         x2={sx(vmaxX)}
         y1={sy(0)}
         y2={sy(-COLLAPSE_DROP)}
-        className="stroke-slate-500"
+        className="stroke-rose"
         strokeDasharray="4 4"
       />
 
@@ -152,7 +152,7 @@ export default function PolarGraph({
           y1={sy(0)}
           x2={sx(bestAir.vx)}
           y2={sy(-bestAir.vz)}
-          className="stroke-fuchsia-500"
+          className="stroke-slate-400"
           strokeDasharray="6 4"
         />
       )}
@@ -162,7 +162,7 @@ export default function PolarGraph({
           y1={sy(0)}
           x2={sx(bestGround.vx)}
           y2={sy(-bestGround.vz)}
-          className="stroke-emerald-500"
+          className="stroke-emerald-400"
           strokeDasharray="6 4"
         />
       )}
@@ -172,7 +172,7 @@ export default function PolarGraph({
           y1={sy(0)}
           x2={sx(bestMacCready.vx)}
           y2={sy(-bestMacCready.vz)}
-          className="stroke-amber-500"
+          className="stroke-thermal-bright"
           strokeDasharray="6 4"
         />
       )}
@@ -183,7 +183,7 @@ export default function PolarGraph({
         y1={sy(0)}
         x2={sx(displaySpeedKmh)}
         y2={sy(-polar.f(displaySpeedKmh))}
-        className="stroke-slate-400"
+        className="stroke-white/30"
         strokeDasharray="4 4"
       />
 
@@ -192,7 +192,7 @@ export default function PolarGraph({
         cx={sx(displaySpeedKmh)}
         cy={sy(-polar.f(displaySpeedKmh))}
         r={6}
-        className="fill-sky-600 stroke-white dark:stroke-slate-900 cursor-grab"
+        className="fill-thermal stroke-white cursor-grab"
         onPointerDown={(e) => {
           const rect = svgRef.current.getBoundingClientRect();
           const px = (e.clientX - rect.left) * (width / rect.width);
@@ -202,14 +202,14 @@ export default function PolarGraph({
       />
 
       {/* Intersection markers */}
-      {bestAir && <circle cx={sx(bestAir.vx)} cy={sy(-bestAir.vz)} r={4} className="fill-fuchsia-500" />}
+      {bestAir && <circle cx={sx(bestAir.vx)} cy={sy(-bestAir.vz)} r={4} className="fill-slate-400" />}
       {bestGround && bestGround.vz < 0 && (
         <rect
           x={sx(bestGround.vx) - 4}
           y={sy(-bestGround.vz) - 4}
           width={8}
           height={8}
-          className="fill-emerald-500"
+          className="fill-emerald-400"
         />
       )}
       {bestMacCready && bestMacCready.vz < 0 && (
@@ -217,15 +217,15 @@ export default function PolarGraph({
           d={`M ${sx(bestMacCready.vx)} ${sy(-bestMacCready.vz) - 5} L ${sx(bestMacCready.vx) - 5} ${
             sy(-bestMacCready.vz) + 4
           } L ${sx(bestMacCready.vx) + 5} ${sy(-bestMacCready.vz) + 4} Z`}
-          className="fill-amber-500"
+          className="fill-thermal-bright"
         />
       )}
 
       {/* Legend */}
       <g transform={`translate(${width - 190},${margin.top + 6})`} className="text-[12px]">
-        <LegendItem color="stroke-fuchsia-500" label={t.legend_best_air} dy={0} />
-        <LegendItem color="stroke-emerald-500" label={t.legend_best_ground} dy={16} />
-        <LegendItem color="stroke-amber-500" label={t.legend_maccready} dy={32} />
+        <LegendItem color="stroke-slate-400" label={t.legend_best_air} dy={0} />
+        <LegendItem color="stroke-emerald-400" label={t.legend_best_ground} dy={16} />
+        <LegendItem color="stroke-thermal-bright" label={t.legend_maccready} dy={32} />
       </g>
     </svg>
   );
@@ -235,7 +235,7 @@ function LegendItem({ color, label, dy }) {
   return (
     <g transform={`translate(0,${dy})`}>
       <line x1={0} y1={0} x2={22} y2={0} className={color} strokeDasharray="6 4" />
-      <text x={28} y={4} className="fill-slate-600 dark:fill-slate-300">
+      <text x={28} y={4} className="font-data fill-slate-300">
         {label}
       </text>
     </g>

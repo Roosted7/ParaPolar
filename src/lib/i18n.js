@@ -52,6 +52,8 @@ export const I18N = {
 
     wing_loading: "Wing Loading (relative)",
 
+    stall_warning: "Stall!",
+    collapse_warning: "Collapse!",
     share: "Share",
     share_copied: "Link copied!",
     reset: "Reset to defaults",
@@ -117,6 +119,8 @@ export const I18N = {
 
     wing_loading: "Flächenbelastung (relativ)",
 
+    stall_warning: "Strömungsabriss!",
+    collapse_warning: "Klapper!",
     share: "Teilen",
     share_copied: "Link kopiert!",
     reset: "Auf Standard zurücksetzen",
@@ -182,6 +186,8 @@ export const I18N = {
 
     wing_loading: "Charge alaire (relative)",
 
+    stall_warning: "Décrochage !",
+    collapse_warning: "Fermeture !",
     share: "Partager",
     share_copied: "Lien copié !",
     reset: "Réinitialiser",
@@ -247,6 +253,8 @@ export const I18N = {
 
     wing_loading: "Vleugelbelasting (relatief)",
 
+    stall_warning: "Overtrek!",
+    collapse_warning: "Inklapper!",
     share: "Delen",
     share_copied: "Link gekopieerd!",
     reset: "Terug naar standaard",

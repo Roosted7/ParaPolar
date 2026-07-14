@@ -3,8 +3,13 @@ import { I18N } from "./lib/i18n";
 import { GLIDERS } from "./data/gliders";
 import { PRESETS } from "./data/presets";
 import { buildPolar, findBestGlidePoint } from "./lib/physics";
-import { KMH_TO_MS, clamp } from "./lib/units";
-import { sliderToSpeed, speedToSlider, speedLandmarks } from "./lib/pilotControl";
+import { KMH_TO_MS, MS_TO_KMH, clamp, convertSpeed, convertVertical, verticalUnitFor } from "./lib/units";
+import {
+  sliderToSpeed,
+  speedToSlider,
+  speedToSliderFull,
+  speedLandmarks,
+} from "./lib/pilotControl";
 import {
   DEFAULT_STATE,
   loadInitialState,
@@ -19,6 +24,8 @@ import ControlsPanel from "./components/ControlsPanel";
 import Footer from "./components/Footer";
 import PolarGraph from "./components/PolarGraph";
 import GroundViz from "./components/GroundViz";
+import InstrumentPod from "./components/InstrumentPod";
+import SpeedControl from "./components/SpeedControl";
 
 // Vertical speeds used to dramatize invalid flight regimes (m/s).
 const STALL_DROP = -6.0;
@@ -139,8 +146,7 @@ export default function App() {
   // Glide ratio = forward distance per unit of height lost (e.g. 8:1).
   const hasForwardGlide = vxGroundMs > 0.1 && vzGroundMs < -0.05;
   const glideRatioGround = hasForwardGlide ? vxGroundMs / -vzGroundMs : null;
-  const glideRatioAir =
-    vzAirEff < 0 ? (displaySpeedKmh * KMH_TO_MS) / -vzAirEff : 0;
+  const glideRatioAir = vzAirEff < 0 ? (displaySpeedKmh * KMH_TO_MS) / -vzAirEff : 0;
 
   // ===== Best-glide tangents =====
   const bestAir = useMemo(
@@ -181,9 +187,51 @@ export default function App() {
 
   // Recommended speed: MacCready target when set, otherwise best glide (ground).
   const speedToFlyKmh = (maccreadyMs > 0 ? bestMacCready : bestGround)?.vx ?? null;
+  const stfSlider = speedToFlyKmh != null ? speedToSlider(speedToFlyKmh, landmarks) : null;
+
+  // ===== Direct manipulation =====
+  const dragSpeedBy = (deltaKmh) => {
+    const current = sliderToSpeed(pilotSlider, landmarks);
+    setPilotSlider(speedToSliderFull(current + deltaKmh, landmarks));
+  };
+  const dragWindTo = (wind) => {
+    if (mode === "simple") {
+      setSimpleWind(clamp(-wind / 20, -1, 1));
+    } else {
+      setWindKmh(clamp(Math.round(wind), -30, 30));
+      clearPreset();
+    }
+  };
+
+  // ===== Scene sky: state, not wallpaper =====
+  const skyClass = dark
+    ? "sky-night"
+    : preset === "thermal"
+      ? "sky-thermal"
+      : preset === "valley" || preset === "backwind"
+        ? "sky-storm"
+        : "sky-dusk";
+
+  const vUnitLabel = t[`unit_${verticalUnitFor(unit)}`];
+  const gsDisplay = convertSpeed(vxGroundMs * MS_TO_KMH, unit);
+  const varioDisplay = convertVertical(vzGroundMs, unit);
+
+  const polarProps = {
+    t,
+    mode,
+    polar,
+    displaySpeedKmh,
+    envWindKmh,
+    bestAir,
+    bestGround,
+    bestMacCready,
+    STALL_DROP,
+    COLLAPSE_DROP,
+    onScrubSpeed: (v) => setPilotSlider(speedToSlider(v, landmarks)),
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
+    <div className="min-h-screen flex flex-col bg-glacier text-slate-800 dark:bg-ink-deep dark:text-slate-100">
       <Header
         t={t}
         lang={lang}
@@ -194,7 +242,92 @@ export default function App() {
         setMode={setMode}
       />
 
-      <main className="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-5 gap-6">
+      <main className="w-full max-w-6xl mx-auto p-3 md:p-6 space-y-3 md:space-y-4 flex-1">
+        {/* ===== The scene ===== */}
+        <section
+          className={`relative overflow-hidden border border-slate-300/60 dark:border-white/10 ${skyClass} h-[44vh] min-h-[330px] md:h-[52vh]`}
+        >
+          <GroundViz
+            t={t}
+            unit={unit}
+            vxGroundMs={vxGroundMs}
+            vzGroundMs={vzGroundMs}
+            airspeedKmh={airspeedForPhysicsKmh}
+            envWindKmh={envWindKmh}
+            envLiftMs={envLiftMs}
+            flightMode={flightMode}
+            showVario={mode === "advanced"}
+            onDragSpeed={dragSpeedBy}
+            onDragWind={dragWindTo}
+          />
+
+          {/* Scenario chips (advanced) */}
+          {mode === "advanced" && (
+            <div className="absolute top-3 left-3 right-3 lg:right-[420px] flex gap-1.5 flex-wrap pointer-events-none">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => applyPreset(p.id)}
+                  className={`pointer-events-auto font-data text-[10px] uppercase tracking-[0.1em] px-2.5 py-1.5 border backdrop-blur-[2px] transition-colors ${
+                    preset === p.id
+                      ? "bg-thermal text-ink border-thermal font-semibold"
+                      : "bg-ink/50 text-glacier border-white/25 hover:border-thermal-bright"
+                  }`}
+                >
+                  {t[`preset_${p.id}`]}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Instrument pods */}
+          {/* Instrument abbreviations are aviation-universal — no translation */}
+          <div className="absolute bottom-3 left-3 flex gap-1.5 pointer-events-none">
+            <InstrumentPod
+              label="L/D GND"
+              value={glideRatioGround != null ? glideRatioGround.toFixed(1) : "—"}
+              unitLabel={glideRatioGround != null ? ":1" : ""}
+            />
+            <InstrumentPod
+              label="GS"
+              value={gsDisplay.toFixed(1)}
+              unitLabel={t[`unit_${unit}`]}
+              tone={vxGroundMs < 0 ? "sink" : "default"}
+            />
+            {mode === "advanced" && (
+              <InstrumentPod
+                label="VARIO"
+                value={`${varioDisplay >= 0 ? "+" : ""}${varioDisplay.toFixed(
+                  verticalUnitFor(unit) === "fpm" ? 0 : 2,
+                )}`}
+                unitLabel={vUnitLabel}
+                tone={vzGroundMs > 0.05 ? "lift" : vzGroundMs < -1.5 ? "sink" : "default"}
+              />
+            )}
+          </div>
+
+          {/* Polar inspector (large screens: docked overlay) */}
+          <div className="hidden lg:block absolute top-3 right-3 w-[390px] bg-ink/70 border border-white/15 backdrop-blur-[3px] p-1.5">
+            <PolarGraph {...polarProps} />
+          </div>
+        </section>
+
+        {/* ===== Primary control: the speed rail ===== */}
+        <section className="bg-white dark:bg-ink-soft border border-slate-200 dark:border-white/10 px-4 py-3 md:px-6">
+          <SpeedControl
+            t={t}
+            value={pilotSlider}
+            onChange={setPilotSlider}
+            stfSlider={mode === "advanced" ? stfSlider : null}
+            danger={flightMode !== "normal" ? flightMode : null}
+          />
+        </section>
+
+        {/* Polar inspector (small screens: below the scene) */}
+        <section className="lg:hidden bg-ink border border-white/10 p-1.5">
+          <PolarGraph {...polarProps} />
+        </section>
+
         <ControlsPanel
           t={t}
           mode={mode}
@@ -202,16 +335,12 @@ export default function App() {
           setUnit={setUnit}
           gliderId={gliderId}
           setGliderId={setGliderId}
-          pilotSlider={pilotSlider}
-          setPilotSlider={setPilotSlider}
           simpleWind={simpleWind}
           setSimpleWind={setSimpleWind}
           windKmh={windKmh}
           setWindKmh={setWindKmh}
           liftMs={liftMs}
           setLiftMs={setLiftMs}
-          preset={preset}
-          applyPreset={applyPreset}
           maccreadyMs={maccreadyMs}
           setMaccreadyMs={setMaccreadyMs}
           wingLoad={wingLoad}
@@ -227,38 +356,6 @@ export default function App() {
             speedToFlyKmh,
           }}
         />
-
-        <section className="md:col-span-3 space-y-6">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-4">
-            <PolarGraph
-              t={t}
-              mode={mode}
-              polar={polar}
-              displaySpeedKmh={displaySpeedKmh}
-              envWindKmh={envWindKmh}
-              bestAir={bestAir}
-              bestGround={bestGround}
-              bestMacCready={bestMacCready}
-              STALL_DROP={STALL_DROP}
-              COLLAPSE_DROP={COLLAPSE_DROP}
-              onScrubSpeed={(v) => setPilotSlider(speedToSlider(v, landmarks))}
-            />
-          </div>
-
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-4">
-            <GroundViz
-              t={t}
-              unit={unit}
-              vxGroundMs={vxGroundMs}
-              vzGroundMs={vzGroundMs}
-              airspeedKmh={airspeedForPhysicsKmh}
-              envWindKmh={envWindKmh}
-              envLiftMs={envLiftMs}
-              showVario={mode === "advanced"}
-              groundGlideRatio={glideRatioGround}
-            />
-          </div>
-        </section>
       </main>
 
       <Footer t={t} />

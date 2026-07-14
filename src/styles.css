@@ -1,7 +1,25 @@
+@import '@fontsource-variable/jost';
 @import 'tailwindcss';
 
 /* Dark mode is driven by a `.dark` class on <html> (see index.html + useTheme). */
 @custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Alpine-dusk instrument palette (see /brief) */
+  --color-ink: #0e1a2b;          /* night-flight navy */
+  --color-ink-soft: #16233a;
+  --color-ink-deep: #0a1524;
+  --color-glacier: #edf1f4;      /* cold daylight ground */
+  --color-paper: #f7f9fa;
+  --color-thermal: #e8833a;      /* lift, action, STF */
+  --color-thermal-bright: #f5b46b;
+  --color-skywash: #4fa3c7;      /* air mass, secondary data */
+  --color-skywash-bright: #6db8d8;
+  --color-rose: #c96f5e;         /* dusk gradients only */
+
+  --font-display: 'Jost Variable', 'Futura', 'Century Gothic', 'Avenir Next', sans-serif;
+  --font-data: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+}
 
 html,
 body {
@@ -9,5 +27,31 @@ body {
 }
 
 body {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-display);
+}
+
+/* Instrument readouts always use tabular digits */
+.font-data {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Scene sky gradients — state, not wallpaper */
+.sky-dusk {
+  background: linear-gradient(180deg, #16283f 0%, #2c415d 40%, #6d6a75 62%, #c98a5a 78%, #e8963f 90%, #f0b25e 100%);
+}
+.sky-thermal {
+  background: linear-gradient(180deg, #2b6a9e 0%, #4f93bd 55%, #8fc0d8 85%, #cfe4ec 100%);
+}
+.sky-storm {
+  background: linear-gradient(180deg, #2f3d46 0%, #4a5c63 55%, #77878a 85%, #a3ada9 100%);
+}
+.sky-night {
+  background: linear-gradient(180deg, #060d1a 0%, #101d31 55%, #23324a 85%, #37455c 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

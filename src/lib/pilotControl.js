@@ -38,3 +38,18 @@ export function speedToSlider(speedKmh, { stallX, trimX, vmaxX }) {
       : 50 + (50 * (v - trimX)) / (vmaxX - trimX);
   return clamp(Math.round(slider), 0, SLIDER_MAX);
 }
+
+/**
+ * Full-range inverse of sliderToSpeed (deep stall .. overspeed) — used by
+ * wing dragging, which is allowed to pull the wing into the invalid regimes.
+ */
+export function speedToSliderFull(speedKmh, lm) {
+  const { deepStallX, stallX, trimX, vmaxX, overSpeedX } = lm;
+  const v = clamp(speedKmh, deepStallX, overSpeedX);
+  let slider;
+  if (v < stallX) slider = (25 * (v - deepStallX)) / (stallX - deepStallX);
+  else if (v <= trimX) slider = 25 + (25 * (v - stallX)) / (trimX - stallX);
+  else if (v <= vmaxX) slider = 50 + (50 * (v - trimX)) / (vmaxX - trimX);
+  else slider = 100 + (20 * (v - vmaxX)) / (overSpeedX - vmaxX);
+  return clamp(Math.round(slider), 0, SLIDER_MAX);
+}
