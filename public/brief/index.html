@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ParaPolar — Creative Brief: from dashboard to flight</title>
+<meta name="description" content="ParaPolar 3.0 creative brief — from dashboard to flight: audiences, growth loop, UX principles, design language, and roadmap." />
+<meta property="og:title" content="ParaPolar 3.0 — Creative Brief" />
+<meta property="og:description" content="From dashboard to flight: the design direction for parapolar.com." />
+<meta property="og:type" content="article" />
+<link rel="icon" href="/icon.svg" type="image/svg+xml" />
+<link rel="canonical" href="https://parapolar.com/brief/" />
+<style>
+  .backlink { position: fixed; top: 14px; right: 16px; z-index: 10; font-family: ui-monospace, Consolas, monospace; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #f5b46b; text-decoration: none; border: 1px solid rgba(245,180,107,0.5); padding: 6px 12px; background: rgba(14,26,43,0.55); backdrop-filter: blur(3px); }
+  .backlink:hover { background: rgba(232,131,58,0.9); color: #16202c; }
+</style>
+</head>
+<body>
+<a class="backlink" href="/">→ open the app</a>
+<style>
+  :root {
+    --ink: #0e1a2b;          /* night-flight navy */
+    --ink-soft: #1b2a40;
+    --glacier: #edf1f4;      /* high-altitude daylight, cold bias */
+    --paper: #f7f9fa;
+    --thermal: #e8833a;      /* lift, energy, the accent */
+    --skywash: #4fa3c7;      /* air, water, the cool counterpart */
+    --rose: #c96f5e;         /* horizon at dusk, used sparingly */
+    --line: #c6d0d8;
+    --txt: #16222f;
+    --txt-dim: #5a6b7a;
+    --card: #ffffff;
+    --hud-glass: rgba(14, 26, 43, 0.78);
+
+    --display: "Futura", "Jost", "Century Gothic", "URW Geometric", "Avenir Next", sans-serif;
+    --body: "Charter", "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+    --data: ui-monospace, "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --glacier: #0b141f;
+      --paper: #0e1826;
+      --line: #253750;
+      --txt: #dbe4ec;
+      --txt-dim: #8ba0b3;
+      --card: #14202f;
+      --skywash: #6db8d8;
+      --thermal: #f0924e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --glacier: #0b141f;
+    --paper: #0e1826;
+    --line: #253750;
+    --txt: #dbe4ec;
+    --txt-dim: #8ba0b3;
+    --card: #14202f;
+    --skywash: #6db8d8;
+    --thermal: #f0924e;
+  }
+  :root[data-theme="light"] {
+    --glacier: #edf1f4;
+    --paper: #f7f9fa;
+    --line: #c6d0d8;
+    --txt: #16222f;
+    --txt-dim: #5a6b7a;
+    --card: #ffffff;
+    --skywash: #4fa3c7;
+    --thermal: #e8833a;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--glacier);
+    color: var(--txt);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.65;
+  }
+
+  /* ---------- hero: dusk, terrain, a polar drawing itself ---------- */
+  .hero {
+    position: relative;
+    min-height: 78vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    background: linear-gradient(180deg,
+      #0a1524 0%, #14263e 38%, #3d4a63 62%, #b96a4e 84%, #e8963f 100%);
+    color: #f2ede4;
+    overflow: hidden;
+  }
+  .hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .hero-inner {
+    position: relative;
+    padding: clamp(24px, 6vw, 72px);
+    max-width: 1060px;
+  }
+  .eyebrow {
+    font-family: var(--data);
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--thermal);
+  }
+  .hero .eyebrow { color: #f5b46b; }
+  h1 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(38px, 6.5vw, 76px);
+    line-height: 1.02;
+    letter-spacing: -0.015em;
+    margin: 10px 0 18px;
+    text-wrap: balance;
+  }
+  .hero p.lede {
+    font-size: clamp(17px, 2vw, 21px);
+    max-width: 34em;
+    margin: 0 0 8px;
+    color: #e7dfd2;
+  }
+  .hero .credit {
+    font-family: var(--data);
+    font-size: 12px;
+    color: #cbb9a4;
+    margin-top: 26px;
+  }
+
+  /* ---------- altitude-band sections: the page is a glide ---------- */
+  main { max-width: 1060px; margin: 0 auto; padding: 0 clamp(18px, 4vw, 40px) 90px; }
+  section.band { padding: 64px 0 8px; border-bottom: 1px solid var(--line); }
+  section.band:last-of-type { border-bottom: none; }
+  .alt-mark {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    font-family: var(--data);
+    font-size: 12.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--txt-dim);
+  }
+  .alt-mark b { color: var(--thermal); font-weight: 600; letter-spacing: 0.08em; }
+  .alt-mark::after { content: ""; flex: 1; height: 1px; background: var(--line); transform: translateY(-4px); }
+  h2 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(26px, 3.6vw, 40px);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 14px 0 10px;
+    text-wrap: balance;
+  }
+  .band > p, .band .prose p { max-width: 62ch; }
+  .prose p { margin: 0 0 1em; }
+  strong { color: var(--txt); }
+  .dim { color: var(--txt-dim); }
+
+  /* ---------- persona cards ---------- */
+  .personas { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin: 26px 0 30px; }
+  .persona {
+    background: var(--card);
+    border: 1px solid var(--line);
+    padding: 18px 18px 16px;
+  }
+  .persona h3 { font-family: var(--display); font-size: 18px; margin: 0 0 2px; font-weight: 600; }
+  .persona .job { font-family: var(--data); font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--skywash); }
+  .persona p { font-size: 15px; margin: 10px 0 0; color: var(--txt-dim); }
+  .persona .hook { margin-top: 10px; font-size: 14.5px; color: var(--txt); }
+  .persona .hook::before { content: "→ "; color: var(--thermal); }
+
+  /* ---------- loop diagram ---------- */
+  .loop { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 0; counter-reset: step; margin: 28px 0 26px; border: 1px solid var(--line); }
+  .loop .step { padding: 18px; border-right: 1px solid var(--line); background: var(--card); position: relative; }
+  .loop .step:last-child { border-right: none; }
+  .loop .step::before {
+    counter-increment: step;
+    content: counter(step);
+    font-family: var(--data); font-size: 12px; color: var(--thermal);
+    border: 1px solid var(--thermal); border-radius: 50%;
+    width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 8px;
+  }
+  .loop h4 { font-family: var(--display); font-size: 16px; margin: 0 0 6px; font-weight: 600; }
+  .loop p { font-size: 14px; color: var(--txt-dim); margin: 0; }
+  @media (max-width: 720px) { .loop { grid-template-columns: 1fr; } .loop .step { border-right: none; border-bottom: 1px solid var(--line); } .loop .step:last-child { border-bottom: none; } }
+
+  /* ---------- principle list ---------- */
+  .principles { display: grid; gap: 0; margin: 26px 0; border-top: 1px solid var(--line); }
+  .principle { display: grid; grid-template-columns: minmax(150px, 220px) 1fr; gap: 18px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .principle dt { font-family: var(--display); font-weight: 600; font-size: 16.5px; }
+  .principle dd { margin: 0; font-size: 15.5px; color: var(--txt-dim); max-width: 58ch; }
+  .principle dd b { color: var(--txt); font-weight: 600; }
+  @media (max-width: 620px) { .principle { grid-template-columns: 1fr; gap: 4px; } }
+
+  /* ---------- palette & type specimen ---------- */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 24px 0; }
+  .swatch { border: 1px solid var(--line); background: var(--card); }
+  .swatch .chip { height: 64px; }
+  .swatch figcaption { padding: 8px 10px; font-family: var(--data); font-size: 11.5px; line-height: 1.5; color: var(--txt-dim); }
+  .swatch figcaption b { display: block; color: var(--txt); font-size: 12.5px; letter-spacing: 0.04em; }
+  figure { margin: 0; }
+
+  .type-spec { border: 1px solid var(--line); background: var(--card); padding: 22px 24px; margin: 20px 0; display: grid; gap: 14px; }
+  .type-spec .row { display: grid; grid-template-columns: minmax(130px, 180px) 1fr; gap: 16px; align-items: baseline; }
+  .type-spec .label { font-family: var(--data); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--txt-dim); }
+  @media (max-width: 620px) { .type-spec .row { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* ---------- HUD mockup (desktop) ---------- */
+  .mock-frame { border: 1px solid var(--line); background: var(--card); padding: 10px; margin: 26px 0; }
+  .mock-caption { font-family: var(--data); font-size: 12px; color: var(--txt-dim); padding: 10px 6px 2px; }
+  .hud {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: linear-gradient(180deg, #1c3350 0%, #35567b 45%, #6f88a2 72%, #a9b4b4 100%);
+    font-family: var(--data);
+    color: #eef3f6;
+    container-type: inline-size;
+  }
+  .hud .ridge { position: absolute; left: 0; right: 0; bottom: 0; height: 26%;
+    background: #16202c;
+    clip-path: polygon(0 62%, 9% 40%, 18% 58%, 30% 22%, 41% 52%, 55% 30%, 66% 55%, 78% 34%, 88% 60%, 100% 44%, 100% 100%, 0 100%);
+  }
+  .hud .glider { position: absolute; left: 38%; top: 34%; width: 34px; height: 12px; }
+  .hud .glider .wing { width: 34px; height: 9px; border-radius: 50% 50% 20% 20%; background: var(--thermal); transform: rotate(-6deg); box-shadow: 0 14px 0 -6px rgba(0,0,0,0.25); }
+  .hud .track { position: absolute; left: 6%; top: 41%; width: 33%; height: 2px;
+    background: repeating-linear-gradient(90deg, rgba(240,180,110,0.85) 0 8px, transparent 8px 16px);
+    transform: rotate(3.4deg); transform-origin: right center; }
+  .hud .instruments {
+    position: absolute; left: 12px; bottom: 12px;
+    display: flex; gap: 8px;
+  }
+  .pod {
+    background: var(--hud-glass);
+    border: 1px solid rgba(255,255,255,0.14);
+    padding: 7px 12px 6px;
+    min-width: 76px;
+    backdrop-filter: blur(2px);
+  }
+  .pod .k { font-size: 8.5px; letter-spacing: 0.18em; text-transform: uppercase; color: #9fb4c6; }
+  .pod .v { font-size: 17px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; margin-top: 2px; }
+  .pod .v .u { font-size: 10px; color: #9fb4c6; }
+  .pod.lift .v { color: #f5b46b; }
+  .hud .inspector {
+    position: absolute; right: 12px; top: 12px; width: 30%;
+    background: var(--hud-glass);
+    border: 1px solid rgba(255,255,255,0.14);
+    padding: 10px 12px 12px;
+  }
+  .hud .inspector .k { font-size: 8.5px; letter-spacing: 0.18em; text-transform: uppercase; color: #9fb4c6; margin-bottom: 6px; }
+  .hud .chips { position: absolute; top: 12px; left: 12px; display: flex; gap: 6px; }
+  .chip-btn { font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 9px; border: 1px solid rgba(255,255,255,0.3); color: #dfe8ee; background: rgba(14,26,43,0.45); }
+  .chip-btn.on { background: var(--thermal); border-color: var(--thermal); color: #16202c; font-weight: 600; }
+  .hud .speedbar {
+    position: absolute; right: 12px; bottom: 12px; left: 46%;
+    background: var(--hud-glass); border: 1px solid rgba(255,255,255,0.14);
+    padding: 8px 14px 10px;
+  }
+  .speedbar .k { display: flex; justify-content: space-between; font-size: 8.5px; letter-spacing: 0.16em; text-transform: uppercase; color: #9fb4c6; margin-bottom: 7px; }
+  .speedbar .rail { position: relative; height: 4px; background: rgba(255,255,255,0.18); }
+  .speedbar .rail .fill { position: absolute; inset: 0 62% 0 0; background: linear-gradient(90deg, var(--skywash), var(--thermal)); }
+  .speedbar .rail .knob { position: absolute; left: 38%; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: #fff; transform: translate(-50%, -50%); box-shadow: 0 0 0 4px rgba(232,131,58,0.35); }
+  .speedbar .rail .stf { position: absolute; left: 52%; top: -5px; bottom: -5px; width: 2px; background: #f5b46b; }
+  .speedbar .rail .stf::after { content: "STF"; position: absolute; top: -14px; left: -8px; font-size: 8px; color: #f5b46b; letter-spacing: 0.1em; }
+  @container (max-width: 560px) { .hud .inspector { display: none; } .hud .speedbar { left: 40%; } }
+
+  /* ---------- mobile mock ---------- */
+  .mock-pair { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; align-items: start; }
+  @media (max-width: 760px) { .mock-pair { grid-template-columns: 1fr; } }
+  .phone {
+    aspect-ratio: 9 / 17;
+    max-width: 250px;
+    margin: 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(180deg, #1c3350 0%, #3d5e83 55%, #7d93a8 80%, #a9b4b4 100%);
+    font-family: var(--data); color: #eef3f6;
+  }
+  .phone .ridge { position: absolute; left: 0; right: 0; bottom: 0; height: 20%;
+    background: #16202c;
+    clip-path: polygon(0 55%, 14% 30%, 28% 56%, 45% 20%, 60% 50%, 76% 28%, 90% 58%, 100% 40%, 100% 100%, 0 100%);
+  }
+  .phone .strip { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 6px; justify-content: space-between; }
+  .phone .pod { min-width: 0; flex: 1; padding: 6px 8px 5px; }
+  .phone .pod .v { font-size: 13px; }
+  .phone .glider { position: absolute; left: 34%; top: 38%; }
+  .phone .glider .wing { width: 26px; height: 7px; border-radius: 50% 50% 20% 20%; background: var(--thermal); transform: rotate(-6deg); }
+  .phone .arc {
+    position: absolute; bottom: -84px; left: 50%; transform: translateX(-50%);
+    width: 240px; height: 240px; border-radius: 50%;
+    border: 22px solid rgba(14,26,43,0.72);
+    border-bottom-color: transparent; border-left-color: transparent;
+    rotate: -45deg;
+  }
+  .phone .arc-knob { position: absolute; bottom: 96px; left: 50%; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 5px rgba(232,131,58,0.4); transform: translateX(26px); }
+  .phone .arc-label { position: absolute; bottom: 30px; left: 0; right: 0; text-align: center; font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: #cfdce6; }
+
+  /* ---------- device table ---------- */
+  .dev-table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin: 22px 0; }
+  .dev-table th { font-family: var(--data); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; text-align: left; color: var(--txt-dim); padding: 10px 14px 8px; border-bottom: 1px solid var(--txt); }
+  .dev-table td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .dev-table td:first-child { font-family: var(--display); font-weight: 600; white-space: nowrap; }
+  .table-wrap { overflow-x: auto; }
+
+  /* ---------- roadmap ---------- */
+  .roadmap { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin: 26px 0; }
+  .phase { background: var(--card); border: 1px solid var(--line); border-top: 3px solid var(--skywash); padding: 16px 18px; }
+  .phase.now { border-top-color: var(--thermal); }
+  .phase h4 { font-family: var(--display); margin: 0 0 4px; font-size: 17px; }
+  .phase .when { font-family: var(--data); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--txt-dim); }
+  .phase ul { padding-left: 18px; margin: 10px 0 0; font-size: 14.5px; color: var(--txt-dim); }
+  .phase li { margin-bottom: 6px; }
+  .phase li b { color: var(--txt); font-weight: 600; }
+
+  .kicker-quote {
+    font-family: var(--display);
+    font-size: clamp(20px, 3vw, 28px);
+    line-height: 1.35;
+    max-width: 26em;
+    margin: 34px 0 10px;
+    padding-left: 18px;
+    border-left: 3px solid var(--thermal);
+    text-wrap: balance;
+  }
+
+  footer { text-align: center; font-family: var(--data); font-size: 12px; color: var(--txt-dim); padding: 30px 0 50px; }
+
+  @media (prefers-reduced-motion: reduce) { .hero canvas { display: none; } }
+</style>
+
+<div class="hero">
+  <canvas id="polarCanvas" aria-hidden="true"></canvas>
+  <div class="hero-inner">
+    <div class="eyebrow">Creative brief · ParaPolar 3.0</div>
+    <h1>From dashboard<br>to flight.</h1>
+    <p class="lede">Today ParaPolar is a correct chart with sliders. The next version is a small sky you fly with your thumb — where the polar curve is the instrument panel, not the product.</p>
+    <p class="credit">FIELD OF PLAY: PARAPOLAR.COM · EN / DE / FR / NL · 14 JUL 2026</p>
+  </div>
+</div>
+
+<main>
+  <section class="band">
+    <div class="alt-mark"><b>ALT 3000 m</b> the thesis</div>
+    <h2>Nobody falls in love with a graph. They fall in love with what it lets them feel.</h2>
+    <div class="prose">
+      <p>Every paragliding student meets the polar curve the same way: a static figure in a theory book, memorized for the exam, forgotten at the landing field. Yet the ideas behind it — <strong>speed to fly, wind gradient, MacCready</strong> — are the difference between gliding home and landing in a tree.</p>
+      <p>ParaPolar's edge is that it can close the gap between the figure and the feeling. The redesign has one organizing rule: <strong>the consequence view is the hero; the chart is the instrument.</strong> You watch a wing fly over terrain, you push the bar, you feel the trade — and the polar graph explains what you just felt, not the other way around.</p>
+    </div>
+    <p class="kicker-quote">"A flight simulator for understanding, not for controls."</p>
+  </section>
+
+  <section class="band">
+    <div class="alt-mark"><b>ALT 2500 m</b> who we fly for</div>
+    <h2>Four riders on one thermal</h2>
+    <p>Each audience arrives with a different question. The product should answer it within a minute — then invite the next one.</p>
+    <div class="personas">
+      <div class="persona">
+        <h3>The student</h3>
+        <div class="job">passing theory · not dying</div>
+        <p>Cramming for the A‑license exam (DHV, FFVL, KNVvL…). Knows the words, hasn't felt them.</p>
+        <div class="hook">Exam-aligned lesson mode: each polar concept as a 90-second interactive scene with a check question.</div>
+      </div>
+      <div class="persona">
+        <h3>The instructor</h3>
+        <div class="job">the multiplier</div>
+        <p>Teaches 50–300 students a year. Projects slides in a clubhouse. Would kill for a live demo.</p>
+        <div class="hook">Classroom mode (big type, presenter-friendly) + embeddable widgets for school sites. One instructor = hundreds of users.</div>
+      </div>
+      <div class="persona">
+        <h3>The XC pilot</h3>
+        <div class="job">gliding farther</div>
+        <p>EN‑B/C, flirting with MacCready theory. Asks concrete questions: "bar or no bar into this valley wind?"</p>
+        <div class="hook">Scenario challenges with real numbers, glider comparison overlays, shareable "beat my glide" links.</div>
+      </div>
+      <div class="persona">
+        <h3>The curious</h3>
+        <div class="job">wonder</div>
+        <p>Tandem passengers, sim pilots, physics teachers, people who watched one YouTube video too many.</p>
+        <div class="hook">Zero-jargon simple mode that is genuinely fun to poke — the toy is the funnel.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="alt-mark"><b>ALT 2000 m</b> reach — the loop, not the megaphone</div>
+    <h2>Growth is a ridge lift: set up the cycle and stay in it</h2>
+    <div class="prose">
+      <p>The current site is a JavaScript app with almost <strong>no indexable text</strong> — to a search engine, parapolar.com is nearly a blank page with a good title. Fixing that is the single highest-leverage SEO move, and it doubles as real user value:</p>
+    </div>
+    <div class="loop">
+      <div class="step">
+        <h4>Learn pages</h4>
+        <p>Pre-rendered articles in all four languages — "What is a polar curve?", "Speed to fly, explained", "MacCready without tears" — each with the live widget embedded mid-article. Static HTML for crawlers, playground for humans.</p>
+      </div>
+      <div class="step">
+        <h4>Embeds for schools</h4>
+        <p>A one-line iframe embed of any scenario. Flight schools and blogs get a free teaching widget; ParaPolar gets the backlinks that actually move rankings in a niche this small.</p>
+      </div>
+      <div class="step">
+        <h4>Share cards</h4>
+        <p>Permalinks already encode full state. Render them as OG images (worker-generated) so a shared "look, negative groundspeed!" link unfurls as a picture in WhatsApp/Telegram — where pilot communities actually live.</p>
+      </div>
+      <div class="step">
+        <h4>Challenges</h4>
+        <p>"Cross this valley losing the least height." Score, retry, send to your club group. Each challenge link is a lesson wearing a game's clothes — and another inbound link.</p>
+      </div>
+    </div>
+    <div class="prose">
+      <p><span class="dim">Distribution to seed the loop: instructor outreach (schools in DE/FR/NL/AT/CH first — the domains already speak their languages), r/freeflight and paraglidingforum threads that show rather than tell, and one collaboration with a paragliding YouTube channel walking through backwind flight on the tool.</span></p>
+      <p><strong>And one subtraction:</strong> replace Google Analytics with a cookieless option (Cloudflare Web Analytics or Plausible). The cookie banner is the first thing every new visitor sees today — the worst possible first impression for a toy. Delete the banner, gain three seconds of magic.</p>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="alt-mark"><b>ALT 1500 m</b> the UX spine</div>
+    <h2>One scene, one loop, layers of depth</h2>
+    <dl class="principles">
+      <div class="principle">
+        <dt>Scene first</dt>
+        <dd>The ground view fills the screen; the polar graph docks as a translucent <b>inspector</b> (desktop) or a pull-up sheet (mobile). Both are views of the same moment — hover the polar, the wing responds; watch the wing, the dot rides the curve.</dd>
+      </div>
+      <div class="principle">
+        <dt>Direct manipulation</dt>
+        <dd>Kill the slider farm. <b>Drag the wing itself</b> forward/back to change speed. Drag the windsock to set wind. Drag the thermal to set lift. The controls live in the world they affect — sliders remain as a precision fallback in the inspector.</dd>
+      </div>
+      <div class="principle">
+        <dt>Ten-second aha</dt>
+        <dd>On first load: wing flying at trim, a gentle prompt — "a headwind is coming" — wind rises, groundspeed melts, the ghost of the best-glide tangent appears. One scripted beat, then it hands you the controls. No modal, no tour, no banner.</dd>
+      </div>
+      <div class="principle">
+        <dt>Progressive depth</dt>
+        <dd>Simple mode = speed + wind, nothing else. Every advanced concept unlocks <b>in context</b>: the first time your groundspeed goes negative, a card offers the "Backwind" lesson. Curiosity pulls the curriculum, not a settings toggle.</dd>
+      </div>
+      <div class="principle">
+        <dt>Felt consequences</dt>
+        <dd>Stall isn't a number turning red: the wing pitches back, shudders, drops — the screen dips with it (respecting reduced-motion). Speed-to-fly isn't a row in a table: it's a <b>notch on the speed control</b> you can feel the knob snap to.</dd>
+      </div>
+      <div class="principle">
+        <dt>Numbers with dignity</dt>
+        <dd>Readouts styled as flight instruments — tabular numerals, unit-aware (m/s, ft/min, kt), glanceable. Data is never decoration; every visible number is one a pilot would actually check.</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="band">
+    <div class="alt-mark"><b>ALT 1000 m</b> design language — "alpine dusk instrument"</div>
+    <h2>Less dashboard, more cockpit at golden hour</h2>
+    <div class="prose">
+      <p>The current UI is competent Tailwind vernacular: white cards, slate borders, rounded pills. Nothing wrong — nothing memorable. The replacement borrows from the two most beautiful things pilots already stare at: <strong>the evening sky and their instruments.</strong></p>
+    </div>
+
+    <div class="swatches">
+      <figure class="swatch"><div class="chip" style="background:#0e1a2b"></div><figcaption><b>Night flight</b> #0E1A2B · ground (dark), HUD glass</figcaption></figure>
+      <figure class="swatch"><div class="chip" style="background:#edf1f4"></div><figcaption><b>Glacier light</b> #EDF1F4 · ground (light), cold not cream</figcaption></figure>
+      <figure class="swatch"><div class="chip" style="background:#e8833a"></div><figcaption><b>Thermal</b> #E8833A · the accent: lift, action, STF</figcaption></figure>
+      <figure class="swatch"><div class="chip" style="background:#4fa3c7"></div><figcaption><b>Skywash</b> #4FA3C7 · air mass, sink, secondary data</figcaption></figure>
+      <figure class="swatch"><div class="chip" style="background:#c96f5e"></div><figcaption><b>Horizon rose</b> #C96F5E · dusk gradients only, never UI chrome</figcaption></figure>
+    </div>
+
+    <div class="type-spec">
+      <div class="row"><span class="label">Display · geometric sans</span><span style="font-family: var(--display); font-size: 26px; font-weight: 600;">Fly the curve, not the numbers</span></div>
+      <div class="row"><span class="label">Body · charter serif</span><span style="font-family: var(--body); font-size: 17px;">Lessons and learn-pages read like a good flight manual, not like app chrome.</span></div>
+      <div class="row"><span class="label">Data · mono, tabular</span><span style="font-family: var(--data); font-size: 16px; font-variant-numeric: tabular-nums;">GR 8.4:1 · GS 27.5 km/h · VARIO +1.20 m/s</span></div>
+    </div>
+
+    <div class="prose">
+      <p>Sky gradients are <strong>state, not wallpaper</strong>: calm evening for the default scene, cumulus blue for thermal scenarios, moody grey-green for the strong-wind lessons. Terrain is a quiet dark silhouette so the physics reads against it. Motion budget is spent in exactly one place — the scene; the chrome around it barely moves.</p>
+    </div>
+
+    <div class="mock-frame">
+      <div class="hud">
+        <div class="chips"><span class="chip-btn on">Ridge day</span><span class="chip-btn">Thermal</span><span class="chip-btn">Backwind</span></div>
+        <div class="ridge"></div>
+        <div class="track"></div>
+        <div class="glider"><div class="wing"></div></div>
+        <div class="inspector">
+          <div class="k">Polar · EN-B</div>
+          <svg viewBox="0 0 200 90" style="width:100%; display:block;">
+            <line x1="14" y1="10" x2="14" y2="78" stroke="rgba(255,255,255,0.25)"/>
+            <line x1="14" y1="78" x2="194" y2="78" stroke="rgba(255,255,255,0.25)"/>
+            <path d="M 40 66 C 52 22, 96 14, 128 22 C 156 29, 172 40, 186 56" fill="none" stroke="#6db8d8" stroke-width="2.5"/>
+            <line x1="14" y1="78" x2="128" y2="22" stroke="#f5b46b" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <circle cx="128" cy="22" r="4.5" fill="#e8833a"/>
+          </svg>
+        </div>
+        <div class="instruments">
+          <div class="pod"><div class="k">Glide</div><div class="v">8.4<span class="u">:1</span></div></div>
+          <div class="pod"><div class="k">Ground</div><div class="v">27.5<span class="u"> km/h</span></div></div>
+          <div class="pod lift"><div class="k">Vario</div><div class="v">+1.20<span class="u"> m/s</span></div></div>
+        </div>
+        <div class="speedbar">
+          <div class="k"><span>Brakes</span><span>Speed</span></div>
+          <div class="rail"><div class="fill"></div><div class="stf"></div><div class="knob"></div></div>
+        </div>
+      </div>
+      <div class="mock-caption">Desktop concept — scene as hero, polar as docked inspector, speed-to-fly as a physical notch (STF) on the control rail.</div>
+    </div>
+
+    <div class="mock-pair">
+      <div class="prose">
+        <p><strong>Mobile is not the desktop squeezed.</strong> The scene fills the phone; instruments condense to a strip; the primary control becomes a <strong>thumb arc</strong> anchored to the bottom corner — the one screen region a hand actually owns. The polar lives one swipe up, in a bottom sheet that half-docks so scene and chart can be watched together.</p>
+        <p>Tablet inherits the desktop layout plus a <strong>classroom toggle</strong>: 1.4× type, high-contrast lines, hidden chrome — built for a projector in a clubhouse and an instructor's pointing finger.</p>
+      </div>
+      <div class="mock-frame" style="margin:0;">
+        <div class="phone">
+          <div class="strip">
+            <div class="pod"><div class="k">GR</div><div class="v">8.4</div></div>
+            <div class="pod"><div class="k">GS</div><div class="v">27</div></div>
+            <div class="pod lift"><div class="k">Vario</div><div class="v">+1.2</div></div>
+          </div>
+          <div class="ridge"></div>
+          <div class="glider"><div class="wing"></div></div>
+          <div class="arc"></div>
+          <div class="arc-knob"></div>
+          <div class="arc-label">thumb arc · speed</div>
+        </div>
+        <div class="mock-caption" style="text-align:center;">Mobile concept — thumb arc control.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="alt-mark"><b>ALT 500 m</b> interaction by device</div>
+    <h2>Meet the hand where it already is</h2>
+    <div class="table-wrap">
+      <table class="dev-table">
+        <tr><th>Device</th><th>Primary input</th><th>Layout</th><th>Special care</th></tr>
+        <tr>
+          <td>Phone</td>
+          <td>Thumb arc for speed · drag windsock · tap-hold for tooltips</td>
+          <td>Scene full-bleed, instrument strip top, polar in half-docking bottom sheet</td>
+          <td>44px+ targets, haptic tick at stall &amp; STF notch, portrait-first (no "rotate your device" nagging)</td>
+        </tr>
+        <tr>
+          <td>Tablet</td>
+          <td>Same touch model, two-handed: left thumb speed, right hand scrubs polar</td>
+          <td>Desktop layout at touch density</td>
+          <td>Classroom mode: projector contrast, big type, laser-focus cursor for the instructor</td>
+        </tr>
+        <tr>
+          <td>Desktop</td>
+          <td>Drag wing or scrub polar · <b>arrow keys = brakes/bar</b> · scroll on scene = wind</td>
+          <td>Scene hero + docked inspector + collapsible lesson rail</td>
+          <td>Hover states everywhere (tangents explain themselves on hover), shareable state in URL at all times</td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="alt-mark"><b>GROUND · LZ</b> the landing — what to build, in order</div>
+    <h2>Roadmap: three glides</h2>
+    <div class="roadmap">
+      <div class="phase now">
+        <h4>Now — the feel</h4>
+        <div class="when">weeks, not months</div>
+        <ul>
+          <li><b>Kill the cookie banner</b> (cookieless analytics)</li>
+          <li><b>Scene-first layout</b>: ground view hero, polar as inspector, linked highlighting between them</li>
+          <li><b>Direct manipulation v1</b>: drag wing = speed, drag windsock = wind, STF notch on the control</li>
+          <li>Design language pass: dusk palette, instrument pods, type system</li>
+        </ul>
+      </div>
+      <div class="phase">
+        <h4>Next — the pull</h4>
+        <div class="when">the growth loop</div>
+        <ul>
+          <li><b>Learn pages</b> ×4 languages, pre-rendered, widget embedded (this is the SEO play)</li>
+          <li><b>OG share cards</b> from permalinks (worker-rendered)</li>
+          <li><b>Embed mode</b> + outreach kit for flight schools</li>
+          <li>Ten-second scripted opening beat</li>
+        </ul>
+      </div>
+      <div class="phase">
+        <h4>Later — the game</h4>
+        <div class="when">retention &amp; love</div>
+        <ul>
+          <li><b>Lesson mode</b>: 8–10 scenes from "what is a polar" to MacCready, exam-aligned per country</li>
+          <li><b>Challenges</b> with scores and share links ("cross the valley", "escape the venturi")</li>
+          <li>Glider comparison overlay · classroom mode</li>
+          <li>Sound design: wind volume = airspeed (vario already sings)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="prose">
+      <p><strong>How we'll know it works:</strong> median session &gt; 3 minutes; ≥ 30% of sessions touch a lesson or challenge; shared-link opens per week; embeds live on ≥ 10 school sites; "polar curve paragliding" top-3 in DE/FR/NL. All measurable without a single cookie.</p>
+    </div>
+    <p class="kicker-quote">"Students should leave the exam and keep the tab open."</p>
+  </section>
+</main>
+
+<footer>PARAPOLAR 3.0 · CREATIVE BRIEF · MADE WITH ❤ FROM AMSTERDAM</footer>
+
+<script>
+  (function () {
+    const c = document.getElementById("polarCanvas");
+    if (!c || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const ctx = c.getContext("2d");
+    let w, h, t0 = null;
+    function size() {
+      const dpr = Math.min(2, devicePixelRatio || 1);
+      w = c.clientWidth; h = c.clientHeight;
+      c.width = w * dpr; c.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    size();
+    addEventListener("resize", size);
+
+    // A stylized polar curve drawn across the dusk sky, dot riding it.
+    function polar(u) { // u in 0..1 -> {x, y} in unit space
+      const x = 0.12 + u * 0.78;
+      const y = 0.30 + 0.38 * Math.pow(u - 0.42, 2) * 3.2 + 0.06 * u;
+      return { x: x * w, y: y * h * 0.72 };
+    }
+    function frame(ts) {
+      if (!t0) t0 = ts;
+      const T = (ts - t0) / 1000;
+      const reveal = Math.min(1, T / 2.4);
+      ctx.clearRect(0, 0, w, h);
+
+      // stars, faint
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
+      for (let i = 0; i < 40; i++) {
+        const sx = ((i * 127.3) % 1) * w, sy = ((i * 61.7) % 1) * h * 0.4;
+        const tw = 0.5 + 0.5 * Math.sin(T * 1.3 + i);
+        ctx.globalAlpha = 0.12 + 0.18 * tw;
+        ctx.fillRect(sx, sy, 1.6, 1.6);
+      }
+      ctx.globalAlpha = 1;
+
+      // the curve
+      ctx.beginPath();
+      const N = 120;
+      for (let i = 0; i <= N * reveal; i++) {
+        const p = polar(i / N);
+        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      }
+      ctx.strokeStyle = "rgba(140, 200, 226, 0.55)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      if (reveal >= 1) {
+        // tangent from origin-ish point
+        const bg = polar(0.42);
+        ctx.beginPath();
+        ctx.moveTo(0.06 * w, 0.06 * h);
+        ctx.lineTo(bg.x, bg.y);
+        ctx.setLineDash([6, 6]);
+        ctx.strokeStyle = "rgba(245, 180, 107, 0.5)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // dot breathing along the curve
+        const u = 0.42 + 0.30 * Math.sin(T * 0.5);
+        const p = polar(Math.max(0.02, Math.min(0.98, u)));
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = "#e8833a";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 10 + 2 * Math.sin(T * 2), 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(232,131,58,0.35)";
+        ctx.stroke();
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  })();
+</script>
+</body></html>
