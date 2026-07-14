@@ -26,9 +26,11 @@ export default function PolarGraph({
   const [dragging, setDragging] = useState(false);
   const grabOffsetRef = useRef(0);
 
-  const margin = { top: 24, right: 24, bottom: 36, left: 44 };
-  const width = 720;
-  const height = 360;
+  // The chart renders at ~390-540px in every placement (sidebar, overlay,
+  // mobile panel) — the viewBox matches that, so text renders at true size.
+  const margin = { top: 18, right: 12, bottom: 34, left: 40 };
+  const width = 460;
+  const height = 330;
 
   const xMin = 0;
   const xMax = Math.max(70, polar.range[1] + 10);
@@ -123,28 +125,28 @@ export default function PolarGraph({
       />
 
       {/* Axis labels */}
-      <text x={width / 2} y={height - 8} className="text-[12px] font-data fill-slate-300">
+      <text x={width / 2 - 40} y={height - 7} className="text-[11px] font-data fill-slate-300">
         {t.axis_airspeed} (km/h)
       </text>
       <text
-        transform={`translate(14 ${height / 2}) rotate(-90)`}
-        className="text-[12px] font-data fill-slate-300"
+        transform={`translate(11 ${height / 2 + 40}) rotate(-90)`}
+        className="text-[11px] font-data fill-slate-300"
       >
         {t.axis_sinkrate} ({t.unit_ms})
       </text>
 
       {/* Tick labels */}
       {yTicks.map((v) => (
-        <text key={`yl-${v}`} x={sx(0) - 28} y={sy(v) + 4} className="text-[11px] font-data fill-slate-400">
+        <text key={`yl-${v}`} x={sx(0) - 26} y={sy(v) + 3.5} className="text-[10px] font-data fill-slate-400">
           {v === 0 ? "0" : v > 0 ? `-${v}` : `+${-v}`}
         </text>
       ))}
       {xTicks.map((v) => (
         <text
           key={`xl-${v}`}
-          x={sx(v) - 6}
-          y={height - margin.bottom + 14}
-          className="text-[11px] font-data fill-slate-400"
+          x={sx(v) - 5}
+          y={height - margin.bottom + 13}
+          className="text-[10px] font-data fill-slate-400"
         >
           {v}
         </text>
@@ -265,7 +267,7 @@ export default function PolarGraph({
       )}
 
       {/* Legend */}
-      <g transform={`translate(${width - 190},${margin.top + 6})`} className="text-[12px]">
+      <g transform={`translate(${width - 148},${margin.top + 8})`} className="text-[10px]">
         <LegendItem color="stroke-slate-400" label={t.legend_best_air} dy={0} />
         <LegendItem color="stroke-emerald-400" label={t.legend_best_ground} dy={16} />
         <LegendItem color="stroke-thermal-bright" label={t.legend_maccready} dy={32} />
@@ -277,8 +279,8 @@ export default function PolarGraph({
 function LegendItem({ color, label, dy }) {
   return (
     <g transform={`translate(0,${dy})`}>
-      <line x1={0} y1={0} x2={22} y2={0} className={color} strokeDasharray="6 4" />
-      <text x={28} y={4} className="font-data fill-slate-300">
+      <line x1={0} y1={0} x2={16} y2={0} className={color} strokeDasharray="5 3" />
+      <text x={21} y={3.5} className="font-data fill-slate-300">
         {label}
       </text>
     </g>
