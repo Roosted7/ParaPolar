@@ -1,40 +1,43 @@
 # AGENTS
 
-This project is a Vite + React single‑page app visualizing paraglider polars. The core logic lives in `src/`, with three key areas:
+ParaPolar is a Vite + React SPA visualizing paraglider polars, deployed as a
+Cloudflare Worker with static assets.
 
-- `src/index.jsx`: App state, UI, environment presets, and wiring between physics and visualizations.
-- `src/components/PolarGraph.jsx`: SVG polar plot, axes, tangents for best glide (air/ground) and MacCready, and scrub interaction.
-- `src/components/GroundViz.jsx`: Canvas side‑scroll ground visualization (consequence view), showing motion over ground.
-- `src/lib/physics.js`: Units, interpolation, polar construction, and best‑glide search.
-- `src/data/gliders.js`: Archetypal glider data (min sink, trim, max, etc.).
-- `src/lib/i18n.js`: Simple string table.
+## Layout
 
-Quick orientation:
+- `src/App.jsx` — top-level state, polar building, kinematics, best-glide searches.
+- `src/components/` — `PolarGraph.jsx` (SVG plot + scrub), `GroundViz.jsx`
+  (canvas ground view + audio vario), `ControlsPanel.jsx`, `DataPanel.jsx`,
+  `Header.jsx`, `GliderPicker.jsx`, `CookieBanner.jsx`, `ShareButton.jsx`, `Footer.jsx`.
+- `src/hooks/` — `useTheme.js` (dark mode), `useLanguage.js` (lang + URL/cookie/SEO sync).
+- `src/lib/` — `physics.js` (spline, stall, best glide), `units.js` (ALL unit
+  conversion/formatting — never inline conversions elsewhere), `persistence.js`
+  (localStorage + `?s=` permalinks), `i18n.js`, `seo.js`, `storage.js`,
+  `analytics.js`, `pilotControl.js` (slider ↔ speed mapping).
+- `src/data/` — `gliders.js` (archetypal polar anchors), `presets.js` (scenarios).
+- `worker/index.ts` — Cloudflare Worker: language-domain redirects + ASSETS.
+- `test/` — Vitest unit tests. Run with `npm test`.
 
-- Specs are in `TechnicalSpecification.md` (root). Use it to verify sign conventions:
-  - Airspeed on X in km/h; sink on Y in m/s (down positive in the plot space).
-  - Headwind is positive; lift is positive. Lift reduces sink (vz becomes less negative).
-  - Groundspeed: Vx_ground = Vx_air − Wind. Vertical: Vz_ground = Vz_air + Lift.
-  - Best glide (ground) tangent originates at (wind, 0). MacCready tangent originates at (wind, +MacCready) when using the convention that lift is added to Vz.
+## Sign conventions (authoritative: TechnicalSpecification.md, Part II)
 
-Searching the spec effectively:
+- Airspeed on X in km/h; vertical speed in m/s, sink negative.
+- Headwind positive; lift positive; lift is ADDED to vz everywhere.
+- Ground vectors: `vx_ground = vx_air − wind`, `vz_ground = vz_air + lift`.
+- Best glide (ground) tangent originates at `(wind, 0)` in plot space;
+  MacCready adds to lift in the search (`findBestGlidePoint`).
+- Glide ratio displayed as forward-per-height-lost (`vx / −vz`, e.g. "8.1:1").
 
-- Use your editor search for key phrases like "Shifting Origin Algorithm", "Best Glide", and "MacCready".
-- Part II of the spec is authoritative for sign conventions and tangent origins.
+## Pitfalls
 
-Common pitfalls addressed:
+- Never set React state inside the `GroundViz` animation loop; per-frame data
+  flows through refs (`paramsRef`, `varioActiveRef`). The rAF effect runs once —
+  anything it reads must be a ref, or it will close over the first render.
+- `PolarGraph` pointer math must scale from CSS pixels to viewBox units.
+- i18n: every language table must have the same keys (enforced by
+  `test/i18n.test.js`). Add languages in `LANGS`, the worker's `LANG_DOMAINS`,
+  and the `LANG_PATH_RE` regex.
 
-- Don’t set React state inside the animation loop. `GroundViz` uses refs for per‑frame updates.
-- Watch lift sign: lift must be added to the air vertical speed everywhere, not subtracted.
-- When showing glide ratio (ground), display only if moving forward (Vx>0) and descending (Vz<0).
+## Commands
 
-Local run:
-
-- `npm install`
-- `npm run dev`
-
-Notes for future work:
-
-- Consider memoizing heavy calculations in `PolarGraph` if you add complexity.
-- If you add more languages, extend `i18n.js` and keep labels used in simple mode (wind hints).
-- For MacCready, you may want a dedicated overlay describing target speed and expected L/D.
+`npm run dev` / `npm test` / `npm run lint` / `npm run typecheck` /
+`npm run build` / `npm run deploy` (needs wrangler auth).
