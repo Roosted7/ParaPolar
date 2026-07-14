@@ -25,7 +25,7 @@ export default [
     },
   },
   {
-    files: ["test/**/*.test.js", "vite.config.mjs", "vitest.config.mjs"],
+    files: ["test/**/*.test.js", "scripts/**/*.mjs", "vite.config.mjs", "vitest.config.mjs"],
     languageOptions: {
       globals: { ...globals.node, btoa: "readonly", atob: "readonly" },
     },

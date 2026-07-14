@@ -106,6 +106,13 @@ export function loadInitialState() {
   return { ...DEFAULT_STATE, ...(loadStoredState() || {}) };
 }
 
+/** True when a previous visit left saved state (used to skip the intro beat). */
+export function hasSavedState() {
+  return Boolean(
+    storage.getItem(STATE_KEY) || storage.getItem(LEGACY_ADV_KEY) || storage.getItem(LEGACY_SIMPLE_KEY),
+  );
+}
+
 export function saveState(state) {
   storage.setJSON(STATE_KEY, { v: 2, ...state });
 }

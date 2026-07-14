@@ -12,6 +12,12 @@ export default function Header({ t, lang, setLang, dark, setDark, mode, setMode 
           </span>
         </h1>
         <div className="flex items-center gap-2 flex-wrap">
+          <a
+            href={`${lang === "en" ? "" : `/${lang}`}/learn/`}
+            className="px-2.5 py-1 text-sm border border-white/20 text-glacier hover:border-thermal-bright no-underline"
+          >
+            {t.nav_learn}
+          </a>
           <button
             onClick={() => setDark((d) => !d)}
             className="px-2.5 py-1 text-sm border border-white/20 text-glacier hover:border-thermal-bright"

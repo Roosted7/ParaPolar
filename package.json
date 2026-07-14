@@ -33,7 +33,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/build-learn.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.worker.json",
     "cf:dev": "npm run build && wrangler dev",

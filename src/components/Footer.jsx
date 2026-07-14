@@ -1,4 +1,5 @@
-export default function Footer({ t }) {
+export default function Footer({ t, lang = "en" }) {
+  const learnHref = `${lang === "en" ? "" : `/${lang}`}/learn/`;
   return (
     <footer className="max-w-6xl mx-auto px-4 md:px-6 pb-10 pt-2 text-xs text-slate-500 dark:text-slate-400">
       <div className="flex flex-col items-center gap-1 text-center">
@@ -16,6 +17,10 @@ export default function Footer({ t }) {
           {t.footer_love_from}.{" "}
           <a className="underline hover:text-thermal" href="https://github.com/Roosted7/ParaPolar">
             GitHub
+          </a>{" "}
+          ·{" "}
+          <a className="underline hover:text-thermal" href={learnHref}>
+            {t.nav_learn}
           </a>{" "}
           ·{" "}
           <a className="underline hover:text-thermal" href="/brief/">

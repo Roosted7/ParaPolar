@@ -52,6 +52,8 @@ export const I18N = {
 
     wing_loading: "Wing Loading (relative)",
 
+    nav_learn: "Learn",
+    intro_caption: "A headwind picks up — watch your groundspeed melt away…",
     stall_warning: "Stall!",
     collapse_warning: "Collapse!",
     share: "Share",
@@ -119,6 +121,8 @@ export const I18N = {
 
     wing_loading: "Flächenbelastung (relativ)",
 
+    nav_learn: "Lernen",
+    intro_caption: "Gegenwind frischt auf — sieh zu, wie deine Geschwindigkeit über Grund schmilzt …",
     stall_warning: "Strömungsabriss!",
     collapse_warning: "Klapper!",
     share: "Teilen",
@@ -186,6 +190,8 @@ export const I18N = {
 
     wing_loading: "Charge alaire (relative)",
 
+    nav_learn: "Apprendre",
+    intro_caption: "Le vent de face forcit — regardez votre vitesse sol fondre…",
     stall_warning: "Décrochage !",
     collapse_warning: "Fermeture !",
     share: "Partager",
@@ -253,6 +259,8 @@ export const I18N = {
 
     wing_loading: "Vleugelbelasting (relatief)",
 
+    nav_learn: "Leren",
+    intro_caption: "De tegenwind trekt aan — kijk hoe je grondsnelheid wegsmelt…",
     stall_warning: "Overtrek!",
     collapse_warning: "Inklapper!",
     share: "Delen",
