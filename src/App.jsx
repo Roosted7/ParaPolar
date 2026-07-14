@@ -137,10 +137,11 @@ export default function App() {
   const vxGroundMs = (airspeedForPhysicsKmh - envWindKmh) * KMH_TO_MS;
   const vzGroundMs = vzAirEff + envLiftMs; // lift (>0) reduces sink
 
+  // Glide ratio = forward distance per unit of height lost (e.g. 8:1).
   const hasForwardGlide = vxGroundMs > 0.1 && vzGroundMs < -0.05;
-  const glideRatioGround = hasForwardGlide ? -vzGroundMs / vxGroundMs : null;
+  const glideRatioGround = hasForwardGlide ? vxGroundMs / -vzGroundMs : null;
   const glideRatioAir =
-    displaySpeedKmh > 0 ? -vzAirEff / (displaySpeedKmh * KMH_TO_MS) : 0;
+    vzAirEff < 0 ? (displaySpeedKmh * KMH_TO_MS) / -vzAirEff : 0;
 
   // ===== Best-glide tangents =====
   const bestAir = useMemo(
