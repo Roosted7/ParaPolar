@@ -1,40 +1,37 @@
 {
-  "name": "new",
-  "version": "1.0.0",
-  "description": "",
-  "keywords": [],
+  "name": "parapolar",
+  "version": "2.0.0",
+  "description": "Interactive paraglider polar curve and speed-to-fly visualizer",
+  "private": true,
+  "keywords": [
+    "paragliding",
+    "polar-curve",
+    "speed-to-fly",
+    "maccready",
+    "visualization"
+  ],
   "type": "module",
-  "main": "src/index.jsx",
   "dependencies": {
-    "react": "19.1.1",
-    "react-dom": "19.1.1"
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.12.2",
-    "@cloudflare/workers-types": "^4.20250902.0",
-    "@tailwindcss/postcss": "^4.1.12",
-    "@tailwindcss/vite": "^4.1.12",
-    "@vitejs/plugin-react-swc": "^3.7.1",
-    "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.12",
-    "typescript": "5.9.2",
-    "vite": "^6.1.0",
-    "wrangler": "^4.33.2"
+    "@cloudflare/workers-types": "^5.20260714.1",
+    "@tailwindcss/vite": "^4.3.2",
+    "@vitejs/plugin-react-swc": "^4.3.1",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.4",
+    "wrangler": "^4.110.0"
   },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "cf:dev": "wrangler dev",
-    "deploy": "vite build && wrangler deploy",
-    "deploy:dev": "vite build && wrangler deploy --env dev",
+    "typecheck": "tsc -p tsconfig.worker.json",
+    "cf:dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
+    "deploy:dev": "npm run build && wrangler deploy --env dev",
     "test": "echo \"No test configured\" && exit 0"
-  },
-  "browserslist": [
-    ">0.2%",
-    "not dead",
-    "not ie <= 11",
-    "not op_mini all"
-  ]
+  }
 }
