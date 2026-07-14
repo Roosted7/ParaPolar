@@ -202,11 +202,12 @@ export default function GroundViz({
       const gy = groundY - y;
 
       const margin = 46;
-      if (x > W + margin || x < -margin || gy < -margin || gy >= groundY) {
+      const terrainTop = groundY - 18; // bumps rise above the baseline
+      if (x > W + margin || x < -margin || gy < -margin || gy >= terrainTop) {
         const strongLift = lMs > 1.5;
         const strongSink = lMs < -1.5;
         x = vxMs >= 0 ? -24 : W + 24;
-        if (gy >= groundY || strongSink) y = Math.min(groundY - 12, H * 0.55);
+        if (gy >= terrainTop || strongSink) y = Math.min(groundY - 12, H * 0.55);
         else if (gy < -margin || strongLift) y = H * 0.25;
         else y = H * 0.45;
       }

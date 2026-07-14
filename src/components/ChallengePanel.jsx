@@ -26,7 +26,7 @@ export default function ChallengePanel({ t, polar, speedKmh, windKmh, liftMs, fl
   };
 
   return (
-    <div className="absolute left-3 right-3 bottom-16 md:left-auto md:right-3 md:bottom-16 md:w-[400px] bg-ink/85 border border-white/20 backdrop-blur-[3px] p-3.5 text-glacier">
+    <div className="absolute top-3 left-3 right-3 md:right-auto md:w-[400px] max-h-[calc(100%-24px)] overflow-y-auto bg-ink border border-white/25 shadow-xl p-3.5 text-glacier">
       <div className="flex items-baseline justify-between gap-2">
         <div className="font-data text-[10px] uppercase tracking-[0.18em] text-thermal-bright">
           {t.challenge}

@@ -123,6 +123,7 @@ export default function App() {
   };
 
   // ===== Phase-3 features: lessons, challenge, comparison, classroom =====
+  const introCancelRef = useRef(null);
   const [lessonIdx, setLessonIdx] = useState(null);
   const [challengeOpen, setChallengeOpen] = useState(false);
   const [compareGliderId, setCompareGliderId] = useState(null);
@@ -131,6 +132,7 @@ export default function App() {
   const openLesson = (idx) => {
     const lesson = (LESSONS[lang] ?? LESSONS.en)[idx];
     if (!lesson) return;
+    introCancelRef.current?.();
     setChallengeOpen(false);
     setMode("advanced");
     setPreset("none");
@@ -144,10 +146,25 @@ export default function App() {
   };
 
   const openChallenge = () => {
+    introCancelRef.current?.();
     setLessonIdx(null);
     setMode("advanced");
     setChallengeOpen(true);
   };
+
+  // Deep link: ?lesson=1..6 opens a lesson directly (used by learn pages).
+  useEffect(() => {
+    let timer;
+    try {
+      const p = new URLSearchParams(window.location.search).get("lesson");
+      const idx = parseInt(p ?? "", 10) - 1;
+      if (idx >= 0) timer = setTimeout(() => openLesson(idx), 0);
+    } catch {
+      /* ignore */
+    }
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Classroom mode: projector-friendly scaling.
   useEffect(() => {
@@ -162,7 +179,6 @@ export default function App() {
   const [introActive, setIntroActive] = useState(
     () => !embed && initial.mode === "simple" && !hasSavedState(),
   );
-  const introCancelRef = useRef(null);
   useEffect(() => {
     if (!introActive) return;
     let raf;
@@ -344,9 +360,13 @@ export default function App() {
             onDragWind={dragWindTo}
           />
 
-          {/* Scenario chips (advanced) */}
-          {mode === "advanced" && (
-            <div className="absolute top-3 left-3 right-3 lg:right-[420px] flex gap-1.5 flex-wrap pointer-events-none">
+          {/* Scenario chips (advanced, hidden while a lesson/challenge panel is open) */}
+          {mode === "advanced" && lessonIdx == null && !challengeOpen && (
+            <div
+              className={`absolute top-3 left-3 flex gap-1.5 flex-wrap pointer-events-none ${
+                embed ? "right-28" : "right-3 lg:right-[420px]"
+              }`}
+            >
               {PRESETS.map((p) => (
                 <button
                   key={p.id}
@@ -468,7 +488,7 @@ export default function App() {
               }
             })()}
             target="_top"
-            className="absolute top-2 right-2 font-data text-[10px] tracking-[0.14em] uppercase px-2 py-1 bg-ink/60 border border-white/25 text-thermal-bright hover:bg-thermal hover:text-ink lg:top-auto lg:bottom-2 lg:right-2"
+            className="absolute top-2 right-2 font-data text-[10px] tracking-[0.14em] uppercase px-2 py-1 bg-ink/60 border border-white/25 text-thermal-bright hover:bg-thermal hover:text-ink"
           >
             parapolar.com ↗
           </a>
