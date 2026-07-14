@@ -1,49 +1,19 @@
-// Conversions & helpers
-export const KMH_TO_MS = 1000 / 3600; // 0.2777..
-export const MS_TO_KMH = 3.6;
-export const KMH_TO_KT = 0.5399568;
-export const KMH_TO_MPH = 0.6213712;
-export const KT_TO_KMH = 1.0 / KMH_TO_KT;
-export const MPH_TO_KMH = 1.0 / KMH_TO_MPH;
-export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+// Polar-curve physics: spline construction, stall derivation, best-glide search.
+// Sign conventions (see TechnicalSpecification.md, Part II):
+// - Airspeed in km/h on X; vertical speed in m/s (sink is negative).
+// - Headwind is positive; lift is positive and is ADDED to vz.
+// - Groundspeed: vx_ground = vx_air - wind. Vertical: vz_ground = vz_air + lift.
 
-export function convertSpeed(valKmh, unit) {
-  switch (unit) {
-    case "kmh":
-      return valKmh;
-    case "ms":
-      return valKmh * KMH_TO_MS;
-    case "mph":
-      return valKmh * KMH_TO_MPH;
-    case "kt":
-      return valKmh * KMH_TO_KT;
-    default:
-      return valKmh;
-  }
-}
+export { KMH_TO_MS, MS_TO_KMH, clamp } from "./units";
 
-// Convert a vertical speed given in m/s to the selected unit. While vertical speeds
-// are typically expressed in m/s, the UI may request consistency with user-selected units.
-export function convertVerticalMs(valMs, unit) {
-  switch (unit) {
-    case "ms":
-      return valMs;
-    case "kmh":
-      return valMs * MS_TO_KMH;
-    case "mph":
-      return valMs * MS_TO_KMH * KMH_TO_MPH;
-    case "kt":
-      return valMs * MS_TO_KMH * KMH_TO_KT;
-    default:
-      return valMs;
-  }
-}
-
-// Natural cubic spline (Numerical Recipes style)
+/**
+ * Natural cubic spline through (xs, ys), clamped to the endpoint values
+ * outside the input range. Numerical Recipes-style tridiagonal solve.
+ */
 export function buildNaturalCubicSpline(xs, ys) {
   const n = xs.length;
-  const y2 = new Array(n).fill(0);
-  const u = new Array(n - 1).fill(0);
+  const y2 = new Array(n).fill(0); // second derivatives
+  const u = new Array(n).fill(0);
   for (let i = 1; i < n - 1; i++) {
     const sig = (xs[i] - xs[i - 1]) / (xs[i + 1] - xs[i - 1]);
     const p = sig * y2[i - 1] + 2.0;
@@ -52,14 +22,17 @@ export function buildNaturalCubicSpline(xs, ys) {
     const dd0 = (ys[i] - ys[i - 1]) / (xs[i] - xs[i - 1]);
     u[i] = ((6.0 * (dd1 - dd0)) / (xs[i + 1] - xs[i - 1]) - sig * u[i - 1]) / p;
   }
-  for (let k = n - 2; k >= 0; k--) {
-    y2[k] = y2[k] * y2[k + 1] + u[k] || y2[k];
+  y2[n - 1] = 0; // natural boundary condition
+  for (let k = n - 2; k >= 1; k--) {
+    y2[k] = y2[k] * y2[k + 1] + u[k];
   }
+  y2[0] = 0;
+
   function evalAt(x) {
-    let klo = 0,
-      khi = n - 1;
     if (x <= xs[0]) return ys[0];
     if (x >= xs[n - 1]) return ys[n - 1];
+    let klo = 0;
+    let khi = n - 1;
     while (khi - klo > 1) {
       const k = ((khi + klo) / 2) | 0;
       if (xs[k] > x) khi = k;
@@ -77,37 +50,64 @@ export function buildNaturalCubicSpline(xs, ys) {
   return { eval: evalAt };
 }
 
+/** Estimate the stall point a little slower and much sinkier than min-sink. */
 export function deriveStallPoint(minSpeedKmh, minSinkMs) {
   const stallSpeed = Math.max(10, minSpeedKmh - 6);
   const stallSink = Math.min(-3.5, minSinkMs * 2.2);
   return { stallSpeed, stallSink };
 }
 
+/** Build vz(vx) from anchor points ({x: km/h, y: m/s}). */
 export function makePolarFunction(points) {
   const xs = points.map((p) => p.x);
   const ys = points.map((p) => p.y);
   const spline = buildNaturalCubicSpline(xs, ys);
-  const f = (vx) => spline.eval(vx);
-  return f;
+  return (vx) => spline.eval(vx);
 }
 
+/**
+ * Build the full polar for a glider at a relative wing loading.
+ * Speeds and sink rates scale with sqrt(wing loading).
+ */
+export function buildPolar(gliderPolarData, wingLoad = 1.0) {
+  const s = Math.sqrt(wingLoad);
+  const pd = gliderPolarData;
+  const stall = deriveStallPoint(pd.min_sink_speed_kmh, pd.min_sink_rate_ms);
+  const anchors = [
+    { x: stall.stallSpeed * s, y: stall.stallSink * s },
+    { x: pd.min_sink_speed_kmh * s, y: pd.min_sink_rate_ms * s },
+    { x: pd.trim_speed_kmh * s, y: pd.trim_sink_rate_ms * s },
+    { x: pd.max_speed_kmh * s, y: pd.max_speed_sink_rate_ms * s },
+  ].sort((a, b) => a.x - b.x);
+  return {
+    f: makePolarFunction(anchors),
+    range: [anchors[0].x, anchors[anchors.length - 1].x],
+    anchors,
+  };
+}
+
+/**
+ * Find the speed that maximizes glide over ground for a given wind/lift
+ * ("shifting origin": tangent from (wind, -lift) to the polar).
+ * Returns { vx (km/h), vz (m/s, incl. lift), ratio (descent gradient) } or
+ * null when no forward-moving point exists.
+ */
 export function findBestGlidePoint({
   fPolarMsAtKmh,
   speedRange,
-  windKmh,
-  liftMs,
+  windKmh = 0,
+  liftMs = 0,
   step = 0.1,
 }) {
   let best = null;
   for (let v = speedRange[0]; v <= speedRange[1]; v += step) {
-  // Vertical shift by airmass: lift (>0) reduces sink, i.e. adds to vz (which is negative for sink)
-  const vz = fPolarMsAtKmh(v) + liftMs;
-    const dx = v - windKmh; // horizontal shift by wind (origin moves to +wind,0)
+    const vz = fPolarMsAtKmh(v) + liftMs; // lift reduces sink
+    const dx = v - windKmh; // groundspeed component (km/h)
     if (dx <= 0.5) continue;
-    const ratio = -vz / dx; // L/D
-    if (!isFinite(ratio)) continue;
-    if (!best || ratio < best.ratio) {
-      best = { vx: v, vz, ratio, slope: vz / dx };
+    const gradient = -vz / dx; // sink per unit forward; minimize => best glide
+    if (!Number.isFinite(gradient)) continue;
+    if (!best || gradient < best.ratio) {
+      best = { vx: v, vz, ratio: gradient };
     }
   }
   return best;
