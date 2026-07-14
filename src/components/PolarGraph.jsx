@@ -10,6 +10,7 @@ export default function PolarGraph({
   t,
   mode,
   polar,
+  ghostPolar,
   displaySpeedKmh,
   envWindKmh,
   bestAir,
@@ -37,16 +38,25 @@ export default function PolarGraph({
   const sy = (vz) =>
     margin.top + ((vz - yMin) / (yMax - yMin)) * (height - margin.top - margin.bottom);
 
-  const validPath = useMemo(() => {
+  const pathFor = (p) => {
     const pts = [];
     const step = 0.25;
-    for (let v = polar.range[0]; v <= polar.range[1]; v += step) {
-      pts.push([sx(v), sy(-polar.f(v))]);
+    for (let v = p.range[0]; v <= p.range[1]; v += step) {
+      pts.push([sx(v), sy(-p.f(v))]);
     }
-    return `M ${pts.map((p) => p.join(",")).join(" L ")}`;
+    return `M ${pts.map((pt) => pt.join(",")).join(" L ")}`;
+  };
+  const validPath = useMemo(
+    () => pathFor(polar),
     // sx/sy only depend on polar-derived constants
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [polar]);
+    [polar],
+  );
+  const ghostPath = useMemo(
+    () => (ghostPolar ? pathFor(ghostPolar) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ghostPolar, polar],
+  );
 
   const stallX = polar.range[0];
   const vmaxX = polar.range[1];
@@ -123,6 +133,11 @@ export default function PolarGraph({
           {v}
         </text>
       ))}
+
+      {/* Comparison polar (ghost) */}
+      {ghostPath && (
+        <path d={ghostPath} className="fill-none stroke-white/35" strokeWidth="1.5" strokeDasharray="2 3" />
+      )}
 
       {/* Valid polar */}
       <path d={validPath} className="fill-none stroke-skywash-bright" strokeWidth="2" />

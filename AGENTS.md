@@ -16,6 +16,10 @@ Cloudflare Worker with static assets.
   `analytics.js`, `pilotControl.js` (slider ↔ speed mapping).
 - `src/data/` — `gliders.js` (archetypal polar anchors), `presets.js` (scenarios).
 - `worker/index.ts` — Cloudflare Worker: language-domain redirects + ASSETS.
+- `src/content/` — learn articles + lesson scripts, all 4 languages, identical
+  structure per language (parity is load-bearing for the generator).
+- `scripts/build-learn.mjs` — pre-renders /learn pages + sitemap into dist/
+  (runs as part of `npm run build`).
 - `test/` — Vitest unit tests. Run with `npm test`.
 
 ## Sign conventions (authoritative: TechnicalSpecification.md, Part II)

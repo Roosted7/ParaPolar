@@ -16,6 +16,8 @@ export default function ControlsPanel({
   setUnit,
   gliderId,
   setGliderId,
+  compareGliderId,
+  setCompareGliderId,
   simpleWind,
   setSimpleWind,
   windKmh,
@@ -55,6 +57,26 @@ export default function ControlsPanel({
           {t.glider_selection_label}
         </label>
         <GliderPicker gliders={GLIDERS} selectedId={gliderId} onSelect={setGliderId} />
+        {mode === "advanced" && (
+          <div className="flex items-center gap-2 pt-1">
+            <label className="font-data text-[11px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+              {t.compare_with}
+            </label>
+            <select
+              value={compareGliderId ?? ""}
+              onChange={(e) => setCompareGliderId(e.target.value || null)}
+              className="border border-slate-300 dark:border-white/20 bg-white dark:bg-ink px-2 py-1 text-sm"
+              aria-label={t.compare_with}
+            >
+              <option value="">{t.compare_none}</option>
+              {GLIDERS.filter((g) => g.id !== gliderId).map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.display}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {mode === "simple" ? (

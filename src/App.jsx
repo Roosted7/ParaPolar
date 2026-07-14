@@ -27,6 +27,9 @@ import PolarGraph from "./components/PolarGraph";
 import GroundViz from "./components/GroundViz";
 import InstrumentPod from "./components/InstrumentPod";
 import SpeedControl from "./components/SpeedControl";
+import LessonPanel from "./components/LessonPanel";
+import ChallengePanel from "./components/ChallengePanel";
+import { LESSONS } from "./content/lessonContent";
 
 // Vertical speeds used to dramatize invalid flight regimes (m/s).
 const STALL_DROP = -6.0;
@@ -119,6 +122,42 @@ export default function App() {
     }
   };
 
+  // ===== Phase-3 features: lessons, challenge, comparison, classroom =====
+  const [lessonIdx, setLessonIdx] = useState(null);
+  const [challengeOpen, setChallengeOpen] = useState(false);
+  const [compareGliderId, setCompareGliderId] = useState(null);
+  const [classroom, setClassroom] = useState(false);
+
+  const openLesson = (idx) => {
+    const lesson = (LESSONS[lang] ?? LESSONS.en)[idx];
+    if (!lesson) return;
+    setChallengeOpen(false);
+    setMode("advanced");
+    setPreset("none");
+    const su = lesson.setup;
+    if (su.gliderId) setGliderId(su.gliderId);
+    if (Number.isFinite(su.pilotSlider)) setPilotSlider(su.pilotSlider);
+    if (Number.isFinite(su.windKmh)) setWindKmh(su.windKmh);
+    if (Number.isFinite(su.liftMs)) setLiftMs(su.liftMs);
+    setMaccreadyMs(su.maccreadyMs ?? 0);
+    setLessonIdx(idx);
+  };
+
+  const openChallenge = () => {
+    setLessonIdx(null);
+    setMode("advanced");
+    setChallengeOpen(true);
+  };
+
+  // Classroom mode: projector-friendly scaling.
+  useEffect(() => {
+    try {
+      document.body.style.zoom = classroom ? "1.25" : "";
+    } catch {
+      /* ignore */
+    }
+  }, [classroom]);
+
   // ===== First-visit scripted beat: wind rises, groundspeed melts =====
   const [introActive, setIntroActive] = useState(
     () => !embed && initial.mode === "simple" && !hasSavedState(),
@@ -164,6 +203,11 @@ export default function App() {
   // ===== Polar & pilot-control mapping =====
   const glider = GLIDERS.find((g) => g.id === gliderId) ?? GLIDERS[1];
   const polar = useMemo(() => buildPolar(glider.polar_data, wingLoad), [glider, wingLoad]);
+  const compareGlider = GLIDERS.find((g) => g.id === compareGliderId) ?? null;
+  const ghostPolar = useMemo(
+    () => (compareGlider ? buildPolar(compareGlider.polar_data, wingLoad) : null),
+    [compareGlider, wingLoad],
+  );
   const landmarks = useMemo(
     () => speedLandmarks(polar, glider.polar_data.trim_speed_kmh, wingLoad),
     [polar, glider, wingLoad],
@@ -273,6 +317,7 @@ export default function App() {
     t,
     mode,
     polar,
+    ghostPolar,
     displaySpeedKmh,
     envWindKmh,
     bestAir,
@@ -315,7 +360,41 @@ export default function App() {
                   {t[`preset_${p.id}`]}
                 </button>
               ))}
+              {!embed && (
+                <button
+                  onClick={openChallenge}
+                  className={`pointer-events-auto font-data text-[10px] uppercase tracking-[0.1em] px-2.5 py-1.5 border backdrop-blur-[2px] transition-colors ${
+                    challengeOpen
+                      ? "bg-rose text-ink border-rose font-semibold"
+                      : "bg-ink/50 text-thermal-bright border-thermal/60 hover:border-thermal"
+                  }`}
+                >
+                  ⚑ {t.challenge}
+                </button>
+              )}
             </div>
+          )}
+
+          {/* Lesson & challenge overlays */}
+          {lessonIdx != null && (
+            <LessonPanel
+              t={t}
+              lang={lang}
+              index={lessonIdx}
+              onNavigate={openLesson}
+              onClose={() => setLessonIdx(null)}
+            />
+          )}
+          {challengeOpen && lessonIdx == null && (
+            <ChallengePanel
+              t={t}
+              polar={polar}
+              speedKmh={displaySpeedKmh}
+              windKmh={envWindKmh}
+              liftMs={envLiftMs}
+              flightMode={flightMode}
+              onClose={() => setChallengeOpen(false)}
+            />
           )}
 
           {/* Instrument pods */}
@@ -409,6 +488,9 @@ export default function App() {
         setDark={setDark}
         mode={mode}
         setMode={setMode}
+        onLessons={() => (lessonIdx == null ? openLesson(0) : setLessonIdx(null))}
+        classroom={classroom}
+        setClassroom={setClassroom}
       />
 
       <main className="w-full max-w-6xl mx-auto p-3 md:p-6 space-y-3 md:space-y-4 flex-1">
@@ -436,6 +518,8 @@ export default function App() {
           setUnit={setUnit}
           gliderId={gliderId}
           setGliderId={setGliderId}
+          compareGliderId={compareGliderId}
+          setCompareGliderId={setCompareGliderId}
           simpleWind={simpleWind}
           setSimpleWind={setSimpleWind}
           windKmh={windKmh}

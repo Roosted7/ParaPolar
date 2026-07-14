@@ -1,6 +1,17 @@
 import { LANGS } from "../lib/i18n";
 
-export default function Header({ t, lang, setLang, dark, setDark, mode, setMode }) {
+export default function Header({
+  t,
+  lang,
+  setLang,
+  dark,
+  setDark,
+  mode,
+  setMode,
+  onLessons,
+  classroom,
+  setClassroom,
+}) {
   return (
     <header className="px-4 py-2.5 md:px-6 sticky top-0 z-20 bg-ink/90 backdrop-blur border-b border-white/10 text-glacier">
       <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 flex-wrap">
@@ -12,12 +23,31 @@ export default function Header({ t, lang, setLang, dark, setDark, mode, setMode 
           </span>
         </h1>
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={onLessons}
+            className="px-2.5 py-1 text-sm border border-thermal/60 text-thermal-bright hover:bg-thermal hover:text-ink"
+          >
+            🎓 {t.lessons}
+          </button>
           <a
             href={`${lang === "en" ? "" : `/${lang}`}/learn/`}
             className="px-2.5 py-1 text-sm border border-white/20 text-glacier hover:border-thermal-bright no-underline"
           >
             {t.nav_learn}
           </a>
+          <button
+            onClick={() => setClassroom((c) => !c)}
+            className={`hidden md:inline-block px-2.5 py-1 text-sm border ${
+              classroom
+                ? "bg-thermal text-ink border-thermal font-semibold"
+                : "border-white/20 text-glacier hover:border-thermal-bright"
+            }`}
+            title={t.classroom}
+            aria-label={t.classroom}
+            aria-pressed={classroom}
+          >
+            ⛶
+          </button>
           <button
             onClick={() => setDark((d) => !d)}
             className="px-2.5 py-1 text-sm border border-white/20 text-glacier hover:border-thermal-bright"

@@ -6,15 +6,17 @@ Explore how wind, lift, MacCready setting, and wing loading change best glide an
 
 ## Features
 
-- **Polar graph** with draggable active point, best-glide tangents (air + ground) and MacCready tangent using the shifting-origin construction
-- **Ground view**: canvas animation of the glider over terrain, wind/lift particles, and a physical windsock
-- **Simple & Advanced modes** — a single wind slider for students; wind/lift/MacCready/wing-loading and live data for the curious
-- **Scenarios**: calm glide, ridge soaring, valley crossing, thermal climb, backwind flight
-- **Speed-to-fly readout** (MacCready target, or best glide over ground)
-- **Audio vario** (consent-based, Web Audio)
-- **4 languages** (EN/DE/FR/NL) with language domains, URL prefixes and hreflang SEO
-- **Shareable permalinks** encoding the full advanced-mode state
-- Dark mode, PWA manifest, units in km/h, m/s, mph, kt (vertical speeds in m/s, ft/min or kt as pilots expect)
+- **Scene-first design** ("alpine dusk instrument", see [/brief](https://parapolar.com/brief/)): the ground view is the hero — scenario-dependent skies, terrain, wind/lift particles, a physical windsock, instrument pods (L/D, GS, vario)
+- **Direct manipulation**: drag the wing to change speed, drag the windsock to set wind; polar graph docks as a glass inspector with a draggable active point and best-glide/MacCready tangents
+- **Speed rail** with trim tick and a speed-to-fly (STF) notch the knob snaps onto; stall/collapse warnings with wing shudder
+- **Lessons**: six localized micro-lessons from "meet the polar" to backwind flight, each applying a live scenario
+- **Valley-crossing challenge**: pick a speed, fly 3 km, get scored against the optimal speed-to-fly
+- **Learn pages** (`/learn`): pre-rendered articles in 4 languages with the app embedded as an interactive widget; sitemap + hreflang SEO
+- **Embeds**: `?embed=1` minimal-chrome mode for iframes (flight schools, blogs)
+- **Share links** that unfurl with the actual scenario (worker-rewritten OG meta)
+- **Glider comparison** overlay, classroom (projector) mode, audio vario + airspeed-driven wind sound
+- **Zero cookies** — no banner, no analytics; only the functional language preference
+- 4 languages (EN/DE/FR/NL) with language domains and URL prefixes; dark mode; km/h, m/s, mph, kt (vertical speeds in m/s, ft/min or kt as pilots expect)
 
 ## Development
 
@@ -38,7 +40,9 @@ npm run build      # production build to dist/
 | `src/lib/persistence.js` | localStorage snapshots + `?s=` permalinks |
 | `src/lib/i18n.js` | String tables and language detection |
 | `src/data/gliders.js` | Archetypal glider polar data |
-| `worker/index.ts` | Cloudflare Worker: language-domain redirects + static assets |
+| `worker/index.ts` | Cloudflare Worker: language redirects, OG rewriting, static assets |
+| `src/content/` | Learn articles + lesson scripts (4 languages) |
+| `scripts/build-learn.mjs` | Pre-renders /learn pages + sitemap at build time |
 
 Sign conventions (see `TechnicalSpecification.md`): airspeed km/h on X, sink m/s on Y; headwind and lift are positive; ground vectors are `vx_air − wind` and `vz_air + lift`. Best glide over ground is the tangent from `(wind, −lift)` to the polar.
 

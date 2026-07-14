@@ -48,6 +48,9 @@ export default function GroundViz({
   const beepRef = useRef({ nextTime: 0 });
   const [varioEnabled, setVarioEnabled] = useState(false);
   const varioActiveRef = useRef(false);
+  // Wind sound: looped filtered noise whose volume follows airspeed
+  const windNodesRef = useRef(null); // {source, filter, gain}
+  const [windSoundEnabled, setWindSoundEnabled] = useState(false);
 
   const ensureAudioContext = () => {
     const AudioCtor = window.AudioContext || window.webkitAudioContext;
@@ -75,9 +78,74 @@ export default function GroundViz({
   const varioActive = showVario && varioEnabled;
   useEffect(() => {
     varioActiveRef.current = varioActive;
-    if (!varioActive) suspendAudio();
+    if (!varioActive && !windNodesRef.current) suspendAudio();
      
   }, [varioActive]);
+
+  // Wind sound lifecycle + volume tracking
+  const stopWindSound = () => {
+    const nodes = windNodesRef.current;
+    if (!nodes) return;
+    try {
+      nodes.source.stop();
+      nodes.source.disconnect();
+      nodes.gain.disconnect();
+    } catch {
+      /* ignore */
+    }
+    windNodesRef.current = null;
+  };
+
+  const startWindSound = () => {
+    const ac = ensureAudioContext();
+    if (!ac || windNodesRef.current) return;
+    try {
+      ac.resume?.();
+      const seconds = 2;
+      const buffer = ac.createBuffer(1, ac.sampleRate * seconds, ac.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      const source = ac.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      const filter = ac.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 500;
+      const gain = ac.createGain();
+      gain.gain.value = 0;
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(gainRef.current);
+      source.start();
+      windNodesRef.current = { source, filter, gain };
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const windSoundActive = windSoundEnabled && showVario;
+  useEffect(() => {
+    if (!windSoundActive) {
+      stopWindSound();
+      return;
+    }
+    startWindSound();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [windSoundActive]);
+
+  useEffect(() => {
+    const nodes = windNodesRef.current;
+    const ac = audioCtxRef.current;
+    if (!nodes || !ac) return;
+    // Louder and brighter with airspeed (trim ~35 km/h, bar ~55 km/h).
+    const norm = Math.min(1, Math.max(0, airspeedKmh / 60));
+    try {
+      nodes.gain.gain.setTargetAtTime(norm * norm * 2.2, ac.currentTime, 0.2);
+      nodes.filter.frequency.setTargetAtTime(300 + norm * 1400, ac.currentTime, 0.2);
+    } catch {
+      /* ignore */
+    }
+  }, [airspeedKmh, windSoundEnabled]);
 
   useEffect(() => {
     let raf;
@@ -329,18 +397,32 @@ export default function GroundViz({
         }}
       />
       {showVario && (
-        <button
-          title={varioEnabled ? t.vario_mute : t.vario_unmute}
-          aria-pressed={varioEnabled}
-          className={`absolute bottom-16 left-3 font-data text-[11px] tracking-[0.1em] uppercase px-2.5 py-1.5 border backdrop-blur-[2px] transition-colors ${
-            varioEnabled
-              ? "bg-thermal text-ink border-thermal font-semibold"
-              : "bg-ink/60 text-glacier border-white/25"
-          }`}
-          onClick={toggleVario}
-        >
-          {t.vario} {varioEnabled ? "🔊" : "🔇"}
-        </button>
+        <div className="absolute bottom-16 left-3 flex gap-1.5">
+          <button
+            title={varioEnabled ? t.vario_mute : t.vario_unmute}
+            aria-pressed={varioEnabled}
+            className={`font-data text-[11px] tracking-[0.1em] uppercase px-2.5 py-1.5 border backdrop-blur-[2px] transition-colors ${
+              varioEnabled
+                ? "bg-thermal text-ink border-thermal font-semibold"
+                : "bg-ink/60 text-glacier border-white/25"
+            }`}
+            onClick={toggleVario}
+          >
+            {t.vario} {varioEnabled ? "🔊" : "🔇"}
+          </button>
+          <button
+            title={t.wind_sound}
+            aria-pressed={windSoundEnabled}
+            className={`font-data text-[11px] tracking-[0.1em] uppercase px-2.5 py-1.5 border backdrop-blur-[2px] transition-colors ${
+              windSoundEnabled
+                ? "bg-thermal text-ink border-thermal font-semibold"
+                : "bg-ink/60 text-glacier border-white/25"
+            }`}
+            onClick={() => setWindSoundEnabled((v) => !v)}
+          >
+            {t.wind_sound} {windSoundEnabled ? "🔊" : "🔇"}
+          </button>
+        </div>
       )}
     </>
   );
