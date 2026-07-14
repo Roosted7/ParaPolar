@@ -1,12 +1,15 @@
 name = "parapolar"
-main = "cloudflare_worker_redirects.js"
-compatibility_date = "2025-06-05"
+main = "worker/index.ts"
+compatibility_date = "2026-07-01"
 
-
-# Use modern Workers Assets for static site
+# Static SPA build served via Workers Assets.
+# run_worker_first is required so the language-domain redirects in the worker
+# execute before an asset (e.g. "/" -> index.html) would be served directly.
 [assets]
 directory = "./dist/"
+binding = "ASSETS"
 not_found_handling = "single-page-application"
+run_worker_first = true
 
 routes = [
   { pattern = "parapolar.com/*", zone_name = "parapolar.com" },

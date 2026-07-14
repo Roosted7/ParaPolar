@@ -1,10 +1,13 @@
-@config "../tailwind.config.mjs";
 @import 'tailwindcss';
 
-/* Preserve a few custom styles if the app relied on them */
-html, body {
+/* Dark mode is driven by a `.dark` class on <html> (see index.html + useTheme). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+html,
+body {
   height: 100%;
 }
 
-/* app-specific overrides */
-.App { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
