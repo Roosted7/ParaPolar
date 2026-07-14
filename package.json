@@ -40,5 +40,6 @@
     "deploy:dev": "npm run build && wrangler deploy --env dev",
     "test": "vitest run",
     "lint": "eslint ."
-  }
+  },
+  "license": "AGPL-3.0-only"
 }

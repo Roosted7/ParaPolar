@@ -51,6 +51,10 @@ npm run deploy       # build + wrangler deploy (production routes)
 npm run deploy:dev   # build + deploy to workers.dev (env: dev)
 ```
 
+## License
+
+[AGPL-3.0](LICENSE). You are free to use, study, modify, and share this project — but if you host it (modified or not) as a network service, you must make your complete source available under the same license. In short: improvements flow back to everyone; closed-off clones don't.
+
 ## Disclaimer
 
 Glider data is archetypal, not manufacturer data — for education only, not flight planning.
