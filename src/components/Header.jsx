@@ -10,6 +10,7 @@ export default function Header({
   setMode,
   onLessons,
   onSetup,
+  setupOpen,
   classroom,
   setClassroom,
 }) {
@@ -38,8 +39,13 @@ export default function Header({
           </a>
           <button
             onClick={onSetup}
-            className="hidden lg:inline-block px-2.5 py-1 text-sm border border-white/20 text-glacier hover:border-thermal-bright"
+            className={`hidden lg:inline-block px-2.5 py-1 text-sm border ${
+              setupOpen
+                ? "bg-thermal text-ink border-thermal font-semibold"
+                : "border-white/20 text-glacier hover:border-thermal-bright"
+            }`}
             title={t.setup}
+            aria-pressed={setupOpen}
           >
             ⚙ {t.setup}
           </button>

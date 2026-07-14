@@ -18,6 +18,7 @@ import {
   encodeShareParam,
   hasSavedState,
 } from "./lib/persistence";
+import * as storage from "./lib/storage";
 import { useTheme } from "./hooks/useTheme";
 import { useLanguage } from "./hooks/useLanguage";
 import Header from "./components/Header";
@@ -129,13 +130,20 @@ export default function App() {
   const [challengeOpen, setChallengeOpen] = useState(false);
   const [compareGliderId, setCompareGliderId] = useState(null);
   const [classroom, setClassroom] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(() => {
+  // Desktop sidebar (scene and controls side-by-side). Open by default.
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
-      return new URLSearchParams(window.location.search).get("setup") === "1";
+      const p = new URLSearchParams(window.location.search).get("setup");
+      if (p === "1") return true;
+      if (p === "0") return false;
     } catch {
-      return false;
+      /* ignore */
     }
+    return storage.getItem("pp_sidebar") !== "closed";
   });
+  useEffect(() => {
+    storage.setItem("pp_sidebar", sidebarOpen ? "open" : "closed");
+  }, [sidebarOpen]);
 
   const openLesson = (idx) => {
     const lesson = (LESSONS[lang] ?? LESSONS.en)[idx];
@@ -418,7 +426,11 @@ export default function App() {
       {mode === "advanced" && lessonIdx == null && !challengeOpen && (
         <div
           className={`absolute top-3 left-3 flex gap-1.5 flex-wrap pointer-events-none ${
-            embed ? "right-28" : "right-3 lg:right-[420px] xl:right-[470px] 2xl:right-[570px]"
+            embed || sidebarOpen
+              ? embed
+                ? "right-28"
+                : "right-3"
+              : "right-3 lg:right-[420px] xl:right-[470px] 2xl:right-[570px]"
           }`}
         >
           {PRESETS.map((p) => (
@@ -483,10 +495,12 @@ export default function App() {
         </div>
       )}
 
-      {/* Polar inspector (large screens: docked overlay) */}
-      <div className="hidden lg:block absolute top-3 right-3 w-[390px] xl:w-[440px] 2xl:w-[540px] bg-ink/70 border border-white/15 backdrop-blur-[3px] p-1.5">
-        <PolarGraph {...polarProps} />
-      </div>
+      {/* Polar inspector overlays the scene only when the sidebar is closed */}
+      {(embed || !sidebarOpen) && (
+        <div className="hidden lg:block absolute top-3 right-3 w-[390px] xl:w-[440px] 2xl:w-[540px] bg-ink/70 border border-white/15 backdrop-blur-[3px] p-1.5">
+          <PolarGraph {...polarProps} />
+        </div>
+      )}
     </>
   );
 
@@ -576,63 +590,47 @@ export default function App() {
         mode={mode}
         setMode={setMode}
         onLessons={() => (lessonIdx == null ? openLesson(0) : setLessonIdx(null))}
-        onSetup={() => setDrawerOpen((v) => !v)}
+        onSetup={() => setSidebarOpen((v) => !v)}
+        setupOpen={sidebarOpen}
         classroom={classroom}
         setClassroom={setClassroom}
       />
 
-      <main className="w-full max-w-7xl 2xl:max-w-[1760px] mx-auto p-3 md:px-6 md:py-4 flex-1 min-h-0 flex flex-col gap-3">
-        {/* ===== The scene ===== */}
-        <section
-          className={`${sceneClass} border border-slate-300/60 dark:border-white/10 h-[46vh] min-h-[300px] lg:h-auto lg:flex-1 lg:min-h-0`}
-        >
-          {sceneContent}
-        </section>
+      <main className="w-full max-w-7xl 2xl:max-w-[1760px] mx-auto p-3 md:px-6 md:py-4 flex-1 min-h-0 flex flex-col lg:flex-row gap-3">
+        {/* ===== Left column: the scene + the rail ===== */}
+        <div className="flex flex-col gap-3 flex-1 min-w-0 min-h-0">
+          <section
+            className={`${sceneClass} border border-slate-300/60 dark:border-white/10 h-[46vh] min-h-[300px] lg:h-auto lg:flex-1 lg:min-h-0`}
+          >
+            {sceneContent}
+          </section>
 
-        {/* Lesson & challenge panels: below the scene on mobile */}
-        {lessonPanel(PANEL_INLINE)}
-        {challengePanel(PANEL_INLINE)}
+          {/* Lesson & challenge panels: below the scene on mobile */}
+          {lessonPanel(PANEL_INLINE)}
+          {challengePanel(PANEL_INLINE)}
 
-        {/* ===== Primary control: the speed rail ===== */}
-        <section className="shrink-0 bg-white dark:bg-ink-soft border border-slate-200 dark:border-white/10 px-4 py-3 md:px-6">
-          {speedRail}
-        </section>
+          {/* ===== Primary control: the speed rail ===== */}
+          <section className="shrink-0 bg-white dark:bg-ink-soft border border-slate-200 dark:border-white/10 px-4 py-3 md:px-6">
+            {speedRail}
+          </section>
 
-        {/* Mobile flow: polar + controls (desktop keeps them in overlay/drawer) */}
-        <section className="lg:hidden bg-ink border border-white/10 p-1.5">
-          <PolarGraph {...polarProps} />
-        </section>
-        <div className="lg:hidden">{controlsPanelEl}</div>
-      </main>
-
-      {/* Desktop setup drawer */}
-      <div className="hidden lg:block">
-        {drawerOpen && (
-          <div
-            className="fixed inset-0 z-30 bg-ink/50"
-            onClick={() => setDrawerOpen(false)}
-            aria-hidden="true"
-          />
-        )}
-        <div
-          className={`fixed inset-y-0 right-0 z-40 w-[460px] max-w-full overflow-y-auto bg-glacier dark:bg-ink-deep border-l border-slate-300 dark:border-white/15 shadow-2xl transition-transform duration-200 ${
-            drawerOpen ? "translate-x-0" : "translate-x-full"
-          }`}
-        >
-          <div className="p-3 space-y-2">
-            <div className="flex justify-end">
-              <button
-                onClick={() => setDrawerOpen(false)}
-                className="font-data text-[11px] uppercase tracking-[0.1em] px-2.5 py-1 border border-slate-300 dark:border-white/20"
-                aria-label={t.lesson_close}
-              >
-                ✕ {t.lesson_close}
-              </button>
-            </div>
-            {controlsPanelEl}
-          </div>
+          {/* Mobile flow: polar + controls (desktop shows them in the sidebar) */}
+          <section className="lg:hidden bg-ink border border-white/10 p-1.5">
+            <PolarGraph {...polarProps} />
+          </section>
+          <div className="lg:hidden">{controlsPanelEl}</div>
         </div>
-      </div>
+
+        {/* ===== Right sidebar (desktop): polar + controls, never over the scene ===== */}
+        {sidebarOpen && (
+          <aside className="hidden lg:flex flex-col gap-3 w-[400px] xl:w-[460px] shrink-0 min-h-0">
+            <div className="shrink-0 bg-ink border border-white/10 p-1.5">
+              <PolarGraph {...polarProps} />
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto">{controlsPanelEl}</div>
+          </aside>
+        )}
+      </main>
 
       <Footer t={t} lang={lang} />
     </div>
