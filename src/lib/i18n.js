@@ -65,12 +65,6 @@ export const I18N = {
     footer_made_by: "Made by",
     footer_love_from: "with ❤ from Amsterdam",
     footer_thanks_to: "Thanks to",
-
-    cookie_title: "Cookies",
-    cookie_body:
-      "We use cookies (Google Analytics) to understand usage and improve this site.",
-    cookie_accept: "Accept",
-    cookie_decline: "Decline",
   },
   de: {
     app_title: "Gleitschirm‑Polare Visualizer",
@@ -136,12 +130,6 @@ export const I18N = {
     footer_made_by: "Erstellt von",
     footer_love_from: "mit ❤ aus Amsterdam",
     footer_thanks_to: "Dank an",
-
-    cookie_title: "Cookies",
-    cookie_body:
-      "Wir verwenden Cookies (Google Analytics), um die Nutzung zu verstehen und die Seite zu verbessern.",
-    cookie_accept: "Akzeptieren",
-    cookie_decline: "Ablehnen",
   },
   fr: {
     app_title: "Visualiseur de Polaire (Parapente)",
@@ -207,12 +195,6 @@ export const I18N = {
     footer_made_by: "Réalisé par",
     footer_love_from: "avec ❤ depuis Amsterdam",
     footer_thanks_to: "Merci à",
-
-    cookie_title: "Cookies",
-    cookie_body:
-      "Nous utilisons des cookies (Google Analytics) pour comprendre l’usage et améliorer ce site.",
-    cookie_accept: "Accepter",
-    cookie_decline: "Refuser",
   },
   nl: {
     app_title: "Polaire-visualisatie voor paragliders",
@@ -278,12 +260,6 @@ export const I18N = {
     footer_made_by: "Gemaakt door",
     footer_love_from: "met ❤ uit Amsterdam",
     footer_thanks_to: "Met dank aan",
-
-    cookie_title: "Cookies",
-    cookie_body:
-      "We gebruiken cookies (Google Analytics) om het gebruik te begrijpen en de site te verbeteren.",
-    cookie_accept: "Accepteren",
-    cookie_decline: "Weigeren",
   },
 };
 

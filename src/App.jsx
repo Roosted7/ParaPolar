@@ -16,7 +16,6 @@ import { useTheme } from "./hooks/useTheme";
 import { useLanguage } from "./hooks/useLanguage";
 import Header from "./components/Header";
 import ControlsPanel from "./components/ControlsPanel";
-import CookieBanner from "./components/CookieBanner";
 import Footer from "./components/Footer";
 import PolarGraph from "./components/PolarGraph";
 import GroundViz from "./components/GroundViz";
@@ -185,7 +184,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
-      <CookieBanner t={t} />
       <Header
         t={t}
         lang={lang}
