@@ -218,21 +218,28 @@ export default function GroundViz({
       // ---- Wind & lift particles ----
       const windVx = -wKmh * KMH_TO_MS * PX_PER_MS;
       const liftVy = -lMs * PX_PER_MS; // same px scale as horizontal flow
+      const tSec = now / 1000;
+      const gust = windGust(tSec); // the whole field surges and eases
       const parts = particlesRef.current;
       for (const p of parts) {
-        p.x += (windVx + (Math.random() - 0.5) * 1.6) * dt;
-        p.y += (liftVy + (Math.random() - 0.5) * 1.2) * dt;
-        if (p.x < -10) p.x = W + 10;
-        if (p.x > W + 10) p.x = -10;
-        if (p.y < 0) p.y = H;
-        if (p.y > H) p.y = 0;
+        // wind gradient: air near the ground moves slower (real, and teachable)
+        const grad = windGradient(p.y, groundY);
+        const wobble = 3.5 + Math.abs(liftVy) * 0.06;
+        p.vx = windVx * gust * grad * p.d + Math.sin(tSec * 1.6 + p.ph) * wobble * p.d;
+        p.vy = liftVy * p.d + Math.cos(tSec * 1.25 + p.ph * 1.7) * wobble * 0.8 * p.d;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        if (p.x < -14) p.x = W + 14;
+        if (p.x > W + 14) p.x = -14;
+        if (p.y < -6) p.y = H + 6;
+        if (p.y > H + 6) p.y = -6;
       }
 
       // ---- Draw ----
       ctx.clearRect(0, 0, W, H);
       drawTerrain(ctx, W, H, groundY, S);
-      drawParticles(ctx, parts, lMs, windVx, liftVy);
-      drawWindsock(ctx, W, H, dt, windVx, liftVy, windsockRef.current, hoverRef.current.overSock, S, groundY);
+      drawParticles(ctx, parts, lMs, windVx * gust, liftVy);
+      drawWindsock(ctx, W, H, dt, windVx * gust, liftVy, windsockRef.current, hoverRef.current.overSock, S, groundY);
       if (hoverRef.current.overSock || dragRef.current?.type === "sock") {
         drawWindsockTooltip(ctx, W, H, paramsRef.current, S, groundY);
       }
@@ -462,29 +469,41 @@ function drawTerrain(ctx, W, H, groundY, S = 1) {
 }
 
 function drawParticles(ctx, parts, lMs, windVx, liftVy) {
-  // Streak length/opacity follow the TOTAL airmass flow (wind and lift),
-  // and the color hints vertical motion: warm = rising air, cool = sinking.
-  const flowMag = Math.hypot(windVx, liftVy); // px/s
-  const alpha = clamp(0.2 + flowMag * 0.008, 0.2, 0.85);
-  const segLen = clamp(flowMag * 0.16, 3, 30);
+  // Streaks trace each particle's ACTUAL motion (gust + gradient + turbulence),
+  // layered by depth: near air moves faster, longer and brighter than far air.
+  // Color hints vertical motion: warm = rising air, cool = sinking.
+  const flowMag = Math.hypot(windVx, liftVy);
+  const baseAlpha = clamp(0.16 + flowMag * 0.008, 0.16, 0.75);
   const warmth = clamp(lMs / 3, -1, 1);
-  const color =
+  const rgb =
     warmth > 0.05
-      ? `rgba(${Math.round(232 + 13 * warmth)}, ${Math.round(220 - 40 * warmth)}, ${Math.round(200 - 90 * warmth)}, ${alpha.toFixed(3)})`
+      ? `${Math.round(232 + 13 * warmth)}, ${Math.round(220 - 40 * warmth)}, ${Math.round(200 - 90 * warmth)}`
       : warmth < -0.05
-        ? `rgba(${Math.round(200 + 26 * warmth)}, ${Math.round(225 + 5 * warmth)}, 248, ${alpha.toFixed(3)})`
-        : `rgba(226, 238, 248, ${alpha.toFixed(3)})`;
-  const ux = flowMag > 0.01 ? windVx / flowMag : 1;
-  const uy = flowMag > 0.01 ? liftVy / flowMag : 0;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.1 + Math.min(0.9, flowMag * 0.008);
+        ? `${Math.round(200 + 26 * warmth)}, ${Math.round(225 + 5 * warmth)}, 248`
+        : "226, 238, 248";
+  const TRAIL = 0.16; // seconds of motion each streak represents
   for (const p of parts) {
+    const speed = Math.hypot(p.vx ?? 0, p.vy ?? 0);
+    const alpha = baseAlpha * (0.35 + 0.65 * p.d) * clamp(0.25 + speed * 0.015, 0.3, 1);
+    ctx.strokeStyle = `rgba(${rgb}, ${alpha.toFixed(3)})`;
+    ctx.lineWidth = 0.7 + p.d * 1.1;
     ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-    ctx.lineTo(p.x - ux * segLen, p.y - uy * segLen);
+    ctx.moveTo(p.x - (p.vx ?? 0) * TRAIL, p.y - (p.vy ?? 0) * TRAIL);
+    ctx.lineTo(p.x, p.y);
     ctx.stroke();
   }
 }
+
+/** Smooth multi-sine gustiness, mean ~1, range roughly 0.75..1.25. */
+function windGust(t) {
+  return 1 + 0.16 * Math.sin(t * 0.8) * Math.sin(t * 0.33 + 1.7) + 0.07 * Math.sin(t * 2.3 + 0.5);
+}
+
+/** Wind gradient: flow slows toward the ground (≈45% at the surface). */
+function windGradient(y, groundY) {
+  return 0.45 + 0.55 * clamp((groundY - y) / (groundY * 0.55), 0, 1);
+}
+
 
 function drawGlider(ctx, x, gy, vxMs, vzMs, vKmh, flightMode, now, highlighted, S = 1) {
   const unstable = flightMode === "stall" || flightMode === "collapse";
@@ -647,7 +666,16 @@ function sceneScale(h) {
 
 function makeParticles(n, w = 720, h = 300) {
   const arr = [];
-  for (let i = 0; i < n; i++) arr.push({ x: Math.random() * w, y: Math.random() * h });
+  for (let i = 0; i < n; i++) {
+    arr.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      d: 0.35 + Math.random() * 0.65, // depth: far (slow, faint) .. near (fast, bright)
+      ph: Math.random() * Math.PI * 2, // turbulence phase
+      vx: 0,
+      vy: 0,
+    });
+  }
   return arr;
 }
 
