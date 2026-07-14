@@ -13,6 +13,8 @@ export default function PolarGraph({
   ghostPolar,
   displaySpeedKmh,
   envWindKmh,
+  envLiftMs = 0,
+  maccreadyMs = 0,
   bestAir,
   bestGround,
   bestMacCready,
@@ -30,7 +32,9 @@ export default function PolarGraph({
 
   const xMin = 0;
   const xMax = Math.max(70, polar.range[1] + 10);
-  const yMin = 0; // top (0 sink)
+  // Sinking air moves the ground-glide origin ABOVE the zero line — give the
+  // chart headroom so the shifting origin stays visible.
+  const yMin = Math.min(0, Math.floor(envLiftMs));
   const yMax = 4.0; // bottom (−4 m/s)
 
   const sx = (v) =>
@@ -48,14 +52,14 @@ export default function PolarGraph({
   };
   const validPath = useMemo(
     () => pathFor(polar),
-    // sx/sy only depend on polar-derived constants
+    // sx/sy depend on the polar range and the (dynamic) y-domain
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [polar],
+    [polar, yMin],
   );
   const ghostPath = useMemo(
     () => (ghostPolar ? pathFor(ghostPolar) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ghostPolar, polar],
+    [ghostPolar, polar, yMin],
   );
 
   const stallX = polar.range[0];
@@ -69,7 +73,10 @@ export default function PolarGraph({
     onScrubSpeed(clamp(v, stallX, vmaxX));
   };
 
-  const yTicks = mode === "simple" ? [0, 2, yMax] : [0, 1, 2, 3, yMax];
+  const yTicks =
+    mode === "simple"
+      ? [0, 2, yMax]
+      : Array.from({ length: 4 - yMin + 1 }, (_, i) => yMin + i);
   const xTicks = mode === "simple" ? [0, 20, 40, xMax] : [0, 10, 20, 30, 40, 50, 60, xMax];
 
   return (
@@ -106,6 +113,15 @@ export default function PolarGraph({
         />
       ))}
 
+      {/* Zero (level flight) line */}
+      <line
+        x1={margin.left}
+        x2={width - margin.right}
+        y1={sy(0)}
+        y2={sy(0)}
+        className="stroke-white/30"
+      />
+
       {/* Axis labels */}
       <text x={width / 2} y={height - 8} className="text-[12px] font-data fill-slate-300">
         {t.axis_airspeed} (km/h)
@@ -120,7 +136,7 @@ export default function PolarGraph({
       {/* Tick labels */}
       {yTicks.map((v) => (
         <text key={`yl-${v}`} x={sx(0) - 28} y={sy(v) + 4} className="text-[11px] font-data fill-slate-400">
-          {v === 0 ? "0" : `-${v}`}
+          {v === 0 ? "0" : v > 0 ? `-${v}` : `+${-v}`}
         </text>
       ))}
       {xTicks.map((v) => (
@@ -172,24 +188,36 @@ export default function PolarGraph({
         />
       )}
       {bestGround && bestGround.vz < 0 && (
-        <line
-          x1={sx(envWindKmh)}
-          y1={sy(0)}
-          x2={sx(bestGround.vx)}
-          y2={sy(-bestGround.vz)}
-          className="stroke-emerald-400"
-          strokeDasharray="6 4"
-        />
+        <>
+          <line
+            x1={sx(envWindKmh)}
+            y1={sy(envLiftMs)}
+            x2={sx(bestGround.vx)}
+            y2={sy(-bestGround.vz)}
+            className="stroke-emerald-400"
+            strokeDasharray="6 4"
+          />
+          {/* the shifted origin itself — the heart of the construction */}
+          <circle cx={sx(envWindKmh)} cy={sy(envLiftMs)} r={3.5} className="fill-emerald-400" />
+        </>
       )}
       {bestMacCready && bestMacCready.vz < 0 && (
-        <line
-          x1={sx(envWindKmh)}
-          y1={sy(0)}
-          x2={sx(bestMacCready.vx)}
-          y2={sy(-bestMacCready.vz)}
-          className="stroke-thermal-bright"
-          strokeDasharray="6 4"
-        />
+        <>
+          <line
+            x1={sx(envWindKmh)}
+            y1={sy(envLiftMs + maccreadyMs)}
+            x2={sx(bestMacCready.vx)}
+            y2={sy(-bestMacCready.vz)}
+            className="stroke-thermal-bright"
+            strokeDasharray="6 4"
+          />
+          <circle
+            cx={sx(envWindKmh)}
+            cy={sy(envLiftMs + maccreadyMs)}
+            r={3.5}
+            className="fill-thermal-bright"
+          />
+        </>
       )}
 
       {/* Current glide line from origin to active point */}

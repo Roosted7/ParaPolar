@@ -9,6 +9,7 @@ export default function Header({
   mode,
   setMode,
   onLessons,
+  onSetup,
   classroom,
   setClassroom,
 }) {
@@ -35,6 +36,13 @@ export default function Header({
           >
             {t.nav_learn}
           </a>
+          <button
+            onClick={onSetup}
+            className="hidden lg:inline-block px-2.5 py-1 text-sm border border-white/20 text-glacier hover:border-thermal-bright"
+            title={t.setup}
+          >
+            ⚙ {t.setup}
+          </button>
           <button
             onClick={() => setClassroom((c) => !c)}
             className={`hidden md:inline-block px-2.5 py-1 text-sm border ${

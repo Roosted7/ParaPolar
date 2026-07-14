@@ -54,6 +54,9 @@ export const I18N = {
 
     nav_learn: "Learn",
     lessons: "Lessons",
+    lesson_goal: "Try it in the scene",
+    lesson_done: "Nailed it!",
+    setup: "Setup",
     lesson_why: "Why?",
     lesson_next: "Next",
     lesson_prev: "Back",
@@ -143,6 +146,9 @@ export const I18N = {
 
     nav_learn: "Lernen",
     lessons: "Lektionen",
+    lesson_goal: "Probier es in der Szene",
+    lesson_done: "Geschafft!",
+    setup: "Setup",
     lesson_why: "Warum?",
     lesson_next: "Weiter",
     lesson_prev: "Zurück",
@@ -232,6 +238,9 @@ export const I18N = {
 
     nav_learn: "Apprendre",
     lessons: "Leçons",
+    lesson_goal: "Essaie dans la scène",
+    lesson_done: "Réussi !",
+    setup: "Réglages",
     lesson_why: "Pourquoi ?",
     lesson_next: "Suivant",
     lesson_prev: "Retour",
@@ -321,6 +330,9 @@ export const I18N = {
 
     nav_learn: "Leren",
     lessons: "Lessen",
+    lesson_goal: "Probeer het in de scène",
+    lesson_done: "Gelukt!",
+    setup: "Instellingen",
     lesson_why: "Waarom?",
     lesson_next: "Volgende",
     lesson_prev: "Terug",

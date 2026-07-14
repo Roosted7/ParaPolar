@@ -30,6 +30,7 @@ import SpeedControl from "./components/SpeedControl";
 import LessonPanel from "./components/LessonPanel";
 import ChallengePanel from "./components/ChallengePanel";
 import { LESSONS } from "./content/lessonContent";
+import { lessonAchieved, minSinkSpeedKmh } from "./lib/lessons";
 
 // Vertical speeds used to dramatize invalid flight regimes (m/s).
 const STALL_DROP = -6.0;
@@ -128,6 +129,13 @@ export default function App() {
   const [challengeOpen, setChallengeOpen] = useState(false);
   const [compareGliderId, setCompareGliderId] = useState(null);
   const [classroom, setClassroom] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("setup") === "1";
+    } catch {
+      return false;
+    }
+  });
 
   const openLesson = (idx) => {
     const lesson = (LESSONS[lang] ?? LESSONS.en)[idx];
@@ -336,112 +344,135 @@ export default function App() {
     ghostPolar,
     displaySpeedKmh,
     envWindKmh,
+    envLiftMs,
+    maccreadyMs: mode === "advanced" ? maccreadyMs : 0,
     bestAir,
     bestGround,
-    bestMacCready,
+    bestMacCready: mode === "advanced" ? bestMacCready : null,
     STALL_DROP,
     COLLAPSE_DROP,
     onScrubSpeed: (v) => setPilotSlider(speedToSlider(v, landmarks)),
   };
 
+  // ===== Lesson goal: the scene confirms what the pilot just did =====
+  const minSinkKmh = useMemo(() => minSinkSpeedKmh(polar), [polar]);
+  const currentLesson = lessonIdx != null ? (LESSONS[lang] ?? LESSONS.en)[lessonIdx] : null;
+  const achieved = currentLesson
+    ? lessonAchieved(currentLesson.id, {
+        pilotSlider,
+        displaySpeedKmh,
+        speedToFlyKmh,
+        vxGroundMs,
+        minSinkKmh,
+      })
+    : false;
+
+  const PANEL_OVERLAY =
+    "hidden md:block absolute top-3 left-3 md:w-[400px] max-h-[calc(100%-24px)] overflow-y-auto bg-ink border border-white/25 shadow-xl p-3.5 text-glacier";
+  const PANEL_INLINE = "md:hidden bg-ink border border-white/25 p-3.5 text-glacier";
+
+  const lessonPanel = (className) =>
+    lessonIdx != null && (
+      <LessonPanel
+        t={t}
+        lang={lang}
+        index={lessonIdx}
+        achieved={achieved}
+        onNavigate={openLesson}
+        onClose={() => setLessonIdx(null)}
+        className={className}
+      />
+    );
+  const challengePanel = (className) =>
+    challengeOpen &&
+    lessonIdx == null && (
+      <ChallengePanel
+        t={t}
+        polar={polar}
+        speedKmh={displaySpeedKmh}
+        windKmh={envWindKmh}
+        liftMs={envLiftMs}
+        flightMode={flightMode}
+        onClose={() => setChallengeOpen(false)}
+        className={className}
+      />
+    );
+
   const sceneContent = (
     <>
       <GroundViz
-            t={t}
-            unit={unit}
-            vxGroundMs={vxGroundMs}
-            vzGroundMs={vzGroundMs}
-            airspeedKmh={airspeedForPhysicsKmh}
-            envWindKmh={envWindKmh}
-            envLiftMs={envLiftMs}
-            flightMode={flightMode}
-            showVario={mode === "advanced"}
-            onDragSpeed={dragSpeedBy}
-            onDragWind={dragWindTo}
-          />
+        t={t}
+        unit={unit}
+        vxGroundMs={vxGroundMs}
+        vzGroundMs={vzGroundMs}
+        airspeedKmh={airspeedForPhysicsKmh}
+        envWindKmh={envWindKmh}
+        envLiftMs={envLiftMs}
+        flightMode={flightMode}
+        showVario={mode === "advanced"}
+        onDragSpeed={dragSpeedBy}
+        onDragWind={dragWindTo}
+      />
 
-          {/* Scenario chips (advanced, hidden while a lesson/challenge panel is open) */}
-          {mode === "advanced" && lessonIdx == null && !challengeOpen && (
-            <div
-              className={`absolute top-3 left-3 flex gap-1.5 flex-wrap pointer-events-none ${
-                embed ? "right-28" : "right-3 lg:right-[420px]"
+      {/* Scenario chips (advanced, hidden while a lesson/challenge panel is open) */}
+      {mode === "advanced" && lessonIdx == null && !challengeOpen && (
+        <div
+          className={`absolute top-3 left-3 flex gap-1.5 flex-wrap pointer-events-none ${
+            embed ? "right-28" : "right-3 lg:right-[420px] xl:right-[470px] 2xl:right-[570px]"
+          }`}
+        >
+          {PRESETS.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => applyPreset(p.id)}
+              className={`pointer-events-auto font-data text-[10px] uppercase tracking-[0.1em] px-2.5 py-1.5 border backdrop-blur-[2px] transition-colors ${
+                preset === p.id
+                  ? "bg-thermal text-ink border-thermal font-semibold"
+                  : "bg-ink/50 text-glacier border-white/25 hover:border-thermal-bright"
               }`}
             >
-              {PRESETS.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => applyPreset(p.id)}
-                  className={`pointer-events-auto font-data text-[10px] uppercase tracking-[0.1em] px-2.5 py-1.5 border backdrop-blur-[2px] transition-colors ${
-                    preset === p.id
-                      ? "bg-thermal text-ink border-thermal font-semibold"
-                      : "bg-ink/50 text-glacier border-white/25 hover:border-thermal-bright"
-                  }`}
-                >
-                  {t[`preset_${p.id}`]}
-                </button>
-              ))}
-              {!embed && (
-                <button
-                  onClick={openChallenge}
-                  className={`pointer-events-auto font-data text-[10px] uppercase tracking-[0.1em] px-2.5 py-1.5 border backdrop-blur-[2px] transition-colors ${
-                    challengeOpen
-                      ? "bg-rose text-ink border-rose font-semibold"
-                      : "bg-ink/50 text-thermal-bright border-thermal/60 hover:border-thermal"
-                  }`}
-                >
-                  ⚑ {t.challenge}
-                </button>
-              )}
-            </div>
+              {t[`preset_${p.id}`]}
+            </button>
+          ))}
+          {!embed && (
+            <button
+              onClick={openChallenge}
+              className="pointer-events-auto font-data text-[10px] uppercase tracking-[0.1em] px-2.5 py-1.5 border backdrop-blur-[2px] bg-ink/50 text-thermal-bright border-thermal/60 hover:border-thermal"
+            >
+              ⚑ {t.challenge}
+            </button>
           )}
+        </div>
+      )}
 
-          {/* Lesson & challenge overlays */}
-          {lessonIdx != null && (
-            <LessonPanel
-              t={t}
-              lang={lang}
-              index={lessonIdx}
-              onNavigate={openLesson}
-              onClose={() => setLessonIdx(null)}
-            />
-          )}
-          {challengeOpen && lessonIdx == null && (
-            <ChallengePanel
-              t={t}
-              polar={polar}
-              speedKmh={displaySpeedKmh}
-              windKmh={envWindKmh}
-              liftMs={envLiftMs}
-              flightMode={flightMode}
-              onClose={() => setChallengeOpen(false)}
-            />
-          )}
+      {/* Lesson & challenge overlays (md+; on mobile they render below the scene) */}
+      {lessonPanel(PANEL_OVERLAY)}
+      {challengePanel(PANEL_OVERLAY)}
 
-          {/* Instrument pods */}
-          {/* Instrument abbreviations are aviation-universal — no translation */}
-          <div className="absolute bottom-3 left-3 flex gap-1.5 pointer-events-none">
-            <InstrumentPod
-              label="L/D GND"
-              value={glideRatioGround != null ? glideRatioGround.toFixed(1) : "—"}
-              unitLabel={glideRatioGround != null ? ":1" : ""}
-            />
-            <InstrumentPod
-              label="GS"
-              value={gsDisplay.toFixed(1)}
-              unitLabel={t[`unit_${unit}`]}
-              tone={vxGroundMs < 0 ? "sink" : "default"}
-            />
-            {mode === "advanced" && (
-              <InstrumentPod
-                label="VARIO"
-                value={`${varioDisplay >= 0 ? "+" : ""}${varioDisplay.toFixed(
-                  verticalUnitFor(unit) === "fpm" ? 0 : 2,
-                )}`}
-                unitLabel={vUnitLabel}
-                tone={vzGroundMs > 0.05 ? "lift" : vzGroundMs < -1.5 ? "sink" : "default"}
-              />
-            )}
-          </div>
+      {/* Instrument pods — aviation-universal abbreviations, no translation */}
+      <div className="absolute bottom-3 left-3 flex gap-1.5 pointer-events-none">
+        <InstrumentPod
+          label="L/D GND"
+          value={glideRatioGround != null ? glideRatioGround.toFixed(1) : "—"}
+          unitLabel={glideRatioGround != null ? ":1" : ""}
+        />
+        <InstrumentPod
+          label="GS"
+          value={gsDisplay.toFixed(1)}
+          unitLabel={t[`unit_${unit}`]}
+          tone={vxGroundMs < 0 ? "sink" : "default"}
+        />
+        {mode === "advanced" && (
+          <InstrumentPod
+            label="VARIO"
+            value={`${varioDisplay >= 0 ? "+" : ""}${varioDisplay.toFixed(
+              verticalUnitFor(unit) === "fpm" ? 0 : 2,
+            )}`}
+            unitLabel={vUnitLabel}
+            tone={vzGroundMs > 0.05 ? "lift" : vzGroundMs < -1.5 ? "sink" : "default"}
+          />
+        )}
+      </div>
 
       {/* First-visit caption */}
       {introActive && (
@@ -453,7 +484,7 @@ export default function App() {
       )}
 
       {/* Polar inspector (large screens: docked overlay) */}
-      <div className="hidden lg:block absolute top-3 right-3 w-[390px] bg-ink/70 border border-white/15 backdrop-blur-[3px] p-1.5">
+      <div className="hidden lg:block absolute top-3 right-3 w-[390px] xl:w-[440px] 2xl:w-[540px] bg-ink/70 border border-white/15 backdrop-blur-[3px] p-1.5">
         <PolarGraph {...polarProps} />
       </div>
     </>
@@ -467,6 +498,39 @@ export default function App() {
       onChange={setPilotSlider}
       stfSlider={mode === "advanced" ? stfSlider : null}
       danger={flightMode !== "normal" ? flightMode : null}
+    />
+  );
+
+  const controlsPanelEl = (
+    <ControlsPanel
+      t={t}
+      mode={mode}
+      unit={unit}
+      setUnit={setUnit}
+      gliderId={gliderId}
+      setGliderId={setGliderId}
+      compareGliderId={compareGliderId}
+      setCompareGliderId={setCompareGliderId}
+      simpleWind={simpleWind}
+      setSimpleWind={setSimpleWind}
+      windKmh={windKmh}
+      setWindKmh={setWindKmh}
+      liftMs={liftMs}
+      setLiftMs={setLiftMs}
+      maccreadyMs={maccreadyMs}
+      setMaccreadyMs={setMaccreadyMs}
+      wingLoad={wingLoad}
+      setWingLoad={setWingLoad}
+      clearPreset={clearPreset}
+      onReset={onReset}
+      liveData={{
+        airspeedKmh: displaySpeedKmh,
+        vzAirMs: vzAirEff,
+        vxGroundMs,
+        glideRatioAir,
+        glideRatioGround,
+        speedToFlyKmh,
+      }}
     />
   );
 
@@ -498,8 +562,11 @@ export default function App() {
     );
   }
 
+  // ===== Full layout =====
+  // Desktop (lg+): a single viewport — scene fills, controls live in a drawer.
+  // Mobile: natural scroll flow; panels render below the scene, never over it.
   return (
-    <div className="min-h-screen flex flex-col bg-glacier text-slate-800 dark:bg-ink-deep dark:text-slate-100">
+    <div className="min-h-screen lg:h-dvh lg:overflow-hidden flex flex-col bg-glacier text-slate-800 dark:bg-ink-deep dark:text-slate-100">
       <Header
         t={t}
         lang={lang}
@@ -509,59 +576,63 @@ export default function App() {
         mode={mode}
         setMode={setMode}
         onLessons={() => (lessonIdx == null ? openLesson(0) : setLessonIdx(null))}
+        onSetup={() => setDrawerOpen((v) => !v)}
         classroom={classroom}
         setClassroom={setClassroom}
       />
 
-      <main className="w-full max-w-6xl mx-auto p-3 md:p-6 space-y-3 md:space-y-4 flex-1">
+      <main className="w-full max-w-7xl 2xl:max-w-[1760px] mx-auto p-3 md:px-6 md:py-4 flex-1 min-h-0 flex flex-col gap-3">
         {/* ===== The scene ===== */}
         <section
-          className={`${sceneClass} border border-slate-300/60 dark:border-white/10 h-[44vh] min-h-[330px] md:h-[52vh]`}
+          className={`${sceneClass} border border-slate-300/60 dark:border-white/10 h-[46vh] min-h-[300px] lg:h-auto lg:flex-1 lg:min-h-0`}
         >
           {sceneContent}
         </section>
 
+        {/* Lesson & challenge panels: below the scene on mobile */}
+        {lessonPanel(PANEL_INLINE)}
+        {challengePanel(PANEL_INLINE)}
+
         {/* ===== Primary control: the speed rail ===== */}
-        <section className="bg-white dark:bg-ink-soft border border-slate-200 dark:border-white/10 px-4 py-3 md:px-6">
+        <section className="shrink-0 bg-white dark:bg-ink-soft border border-slate-200 dark:border-white/10 px-4 py-3 md:px-6">
           {speedRail}
         </section>
 
-        {/* Polar inspector (small screens: below the scene) */}
+        {/* Mobile flow: polar + controls (desktop keeps them in overlay/drawer) */}
         <section className="lg:hidden bg-ink border border-white/10 p-1.5">
           <PolarGraph {...polarProps} />
         </section>
-
-        <ControlsPanel
-          t={t}
-          mode={mode}
-          unit={unit}
-          setUnit={setUnit}
-          gliderId={gliderId}
-          setGliderId={setGliderId}
-          compareGliderId={compareGliderId}
-          setCompareGliderId={setCompareGliderId}
-          simpleWind={simpleWind}
-          setSimpleWind={setSimpleWind}
-          windKmh={windKmh}
-          setWindKmh={setWindKmh}
-          liftMs={liftMs}
-          setLiftMs={setLiftMs}
-          maccreadyMs={maccreadyMs}
-          setMaccreadyMs={setMaccreadyMs}
-          wingLoad={wingLoad}
-          setWingLoad={setWingLoad}
-          clearPreset={clearPreset}
-          onReset={onReset}
-          liveData={{
-            airspeedKmh: displaySpeedKmh,
-            vzAirMs: vzAirEff,
-            vxGroundMs,
-            glideRatioAir,
-            glideRatioGround,
-            speedToFlyKmh,
-          }}
-        />
+        <div className="lg:hidden">{controlsPanelEl}</div>
       </main>
+
+      {/* Desktop setup drawer */}
+      <div className="hidden lg:block">
+        {drawerOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-ink/50"
+            onClick={() => setDrawerOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+        <div
+          className={`fixed inset-y-0 right-0 z-40 w-[460px] max-w-full overflow-y-auto bg-glacier dark:bg-ink-deep border-l border-slate-300 dark:border-white/15 shadow-2xl transition-transform duration-200 ${
+            drawerOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <div className="p-3 space-y-2">
+            <div className="flex justify-end">
+              <button
+                onClick={() => setDrawerOpen(false)}
+                className="font-data text-[11px] uppercase tracking-[0.1em] px-2.5 py-1 border border-slate-300 dark:border-white/20"
+                aria-label={t.lesson_close}
+              >
+                ✕ {t.lesson_close}
+              </button>
+            </div>
+            {controlsPanelEl}
+          </div>
+        </div>
+      </div>
 
       <Footer t={t} lang={lang} />
     </div>

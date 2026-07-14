@@ -5,7 +5,7 @@ import { CHALLENGE_DISTANCE_KM, heightLost, optimalCrossing, scoreCrossing } fro
  * Valley-crossing challenge: pick a speed with the live controls, fly it,
  * get scored against the optimal speed-to-fly for the current airmass.
  */
-export default function ChallengePanel({ t, polar, speedKmh, windKmh, liftMs, flightMode, onClose }) {
+export default function ChallengePanel({ t, polar, speedKmh, windKmh, liftMs, flightMode, onClose, className }) {
   const [result, setResult] = useState(null);
 
   const fly = () => {
@@ -26,7 +26,7 @@ export default function ChallengePanel({ t, polar, speedKmh, windKmh, liftMs, fl
   };
 
   return (
-    <div className="absolute top-3 left-3 right-3 md:right-auto md:w-[400px] max-h-[calc(100%-24px)] overflow-y-auto bg-ink border border-white/25 shadow-xl p-3.5 text-glacier">
+    <div className={className}>
       <div className="flex items-baseline justify-between gap-2">
         <div className="font-data text-[10px] uppercase tracking-[0.18em] text-thermal-bright">
           {t.challenge}

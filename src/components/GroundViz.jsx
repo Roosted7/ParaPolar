@@ -162,7 +162,8 @@ export default function GroundViz({
       canvas.height = Math.round(cssH * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       dimsRef.current = { w: cssW, h: cssH };
-      particlesRef.current = makeParticles(particlesRef.current.length, cssW, cssH);
+      const count = Math.max(90, Math.min(420, Math.round((cssW * cssH) / 2400)));
+      particlesRef.current = makeParticles(count, cssW, cssH);
     }
 
     resizeCanvas();
@@ -184,6 +185,7 @@ export default function GroundViz({
       }
 
       const { w: W, h: H } = dimsRef.current;
+      const S = sceneScale(H); // element scale for large scenes
       const {
         vxGroundMs: vxMs,
         vzGroundMs: vzMs,
@@ -194,15 +196,15 @@ export default function GroundViz({
       } = paramsRef.current;
 
       // ---- Update glider position ----
-      const PX_PER_MS = (W / 720) * 8;
+      const PX_PER_MS = (W / 720) * 8; // horizontal px/s per m/s
       let { x, y } = posRef.current;
       x += vxMs * PX_PER_MS * dt;
-      y = Math.max(0, y + vzMs * 25 * dt);
-      const groundY = H - 42;
+      y = Math.max(0, y + vzMs * 25 * (W / 720) * dt);
+      const groundY = H - 42 * S;
       const gy = groundY - y;
 
       const margin = 46;
-      const terrainTop = groundY - 18; // bumps rise above the baseline
+      const terrainTop = groundY - 18 * S; // bumps rise above the baseline
       if (x > W + margin || x < -margin || gy < -margin || gy >= terrainTop) {
         const strongLift = lMs > 1.5;
         const strongSink = lMs < -1.5;
@@ -215,7 +217,7 @@ export default function GroundViz({
 
       // ---- Wind & lift particles ----
       const windVx = -wKmh * KMH_TO_MS * PX_PER_MS;
-      const liftVy = -lMs * 8;
+      const liftVy = -lMs * PX_PER_MS; // same px scale as horizontal flow
       const parts = particlesRef.current;
       for (const p of parts) {
         p.x += (windVx + (Math.random() - 0.5) * 1.6) * dt;
@@ -228,13 +230,13 @@ export default function GroundViz({
 
       // ---- Draw ----
       ctx.clearRect(0, 0, W, H);
-      drawTerrain(ctx, W, H, groundY);
-      drawParticles(ctx, parts, wKmh, windVx, liftVy);
-      drawWindsock(ctx, W, H, dt, windVx, liftVy, windsockRef.current, hoverRef.current.overSock);
+      drawTerrain(ctx, W, H, groundY, S);
+      drawParticles(ctx, parts, lMs, windVx, liftVy);
+      drawWindsock(ctx, W, H, dt, windVx, liftVy, windsockRef.current, hoverRef.current.overSock, S, groundY);
       if (hoverRef.current.overSock || dragRef.current?.type === "sock") {
-        drawWindsockTooltip(ctx, W, H, paramsRef.current);
+        drawWindsockTooltip(ctx, W, H, paramsRef.current, S, groundY);
       }
-      drawGlider(ctx, x, groundY - y, vxMs, vzMs, vKmh, fMode, now, hoverRef.current.overWing);
+      drawGlider(ctx, x, groundY - y, vxMs, vzMs, vKmh, fMode, now, hoverRef.current.overWing, S);
 
       // ---- Vario audio ----
       if (varioActiveRef.current) scheduleVarioBeep(now, vzMs);
@@ -312,13 +314,15 @@ export default function GroundViz({
 
   const hitTest = (mx, my) => {
     const { w: W, h: H } = dimsRef.current;
-    const groundY = H - 42;
+    const S = sceneScale(H);
+    const groundY = H - 42 * S;
     const gx = posRef.current.x;
     const gyPix = groundY - posRef.current.y;
-    const overWing = Math.hypot(mx - gx, my - gyPix) < 36;
-    const sockX = W - 34;
-    const sockY = groundY - 26;
-    const overSock = mx >= sockX - 90 && mx <= sockX + 26 && my >= sockY - 55 && my <= sockY + 55;
+    const overWing = Math.hypot(mx - gx, my - gyPix) < 36 * S;
+    const sockX = W - 34 * S;
+    const sockY = groundY - 26 * S;
+    const overSock =
+      mx >= sockX - 90 * S && mx <= sockX + 26 * S && my >= sockY - 55 * S && my <= sockY + 55 * S;
     return { overWing, overSock: !overWing && overSock };
   };
 
@@ -431,13 +435,13 @@ export default function GroundViz({
 
 // ===== Drawing helpers (pure canvas, no React) =====
 
-function drawTerrain(ctx, W, H, groundY) {
+function drawTerrain(ctx, W, H, groundY, S = 1) {
   // distant range
   ctx.fillStyle = "rgba(20, 30, 46, 0.35)";
   ctx.beginPath();
-  ctx.moveTo(0, groundY - 4);
+  ctx.moveTo(0, groundY - 4 * S);
   for (let i = 0; i <= W; i += 8) {
-    ctx.lineTo(i, groundY - 14 - Math.sin(i / 95 + 2) * 16 - Math.sin(i / 41) * 6);
+    ctx.lineTo(i, groundY - (14 + Math.sin(i / (95 * S) + 2) * 16 + Math.sin(i / (41 * S)) * 6) * S);
   }
   ctx.lineTo(W, H);
   ctx.lineTo(0, H);
@@ -449,7 +453,7 @@ function drawTerrain(ctx, W, H, groundY) {
   ctx.beginPath();
   ctx.moveTo(0, groundY + 2);
   for (let i = 0; i <= W; i += 6) {
-    ctx.lineTo(i, groundY - (Math.sin(i / 130) * 9 + Math.sin(i / 57 + 1.3) * 4 + 7));
+    ctx.lineTo(i, groundY - (Math.sin(i / (130 * S)) * 9 + Math.sin(i / (57 * S) + 1.3) * 4 + 7) * S);
   }
   ctx.lineTo(W, H);
   ctx.lineTo(0, H);
@@ -457,31 +461,43 @@ function drawTerrain(ctx, W, H, groundY) {
   ctx.fill();
 }
 
-function drawParticles(ctx, parts, wKmh, windVx, liftVy) {
-  const windMag = Math.abs(wKmh);
-  const baseAlpha = Math.min(0.75, 0.2 + windMag * 0.02);
-  const segScale = 0.05 + Math.min(0.08, windMag * 0.002);
-  ctx.strokeStyle = `rgba(226, 238, 248, ${baseAlpha.toFixed(3)})`;
-  ctx.lineWidth = 1.1 + Math.min(0.9, windMag * 0.03);
+function drawParticles(ctx, parts, lMs, windVx, liftVy) {
+  // Streak length/opacity follow the TOTAL airmass flow (wind and lift),
+  // and the color hints vertical motion: warm = rising air, cool = sinking.
+  const flowMag = Math.hypot(windVx, liftVy); // px/s
+  const alpha = clamp(0.2 + flowMag * 0.008, 0.2, 0.85);
+  const segLen = clamp(flowMag * 0.16, 3, 30);
+  const warmth = clamp(lMs / 3, -1, 1);
+  const color =
+    warmth > 0.05
+      ? `rgba(${Math.round(232 + 13 * warmth)}, ${Math.round(220 - 40 * warmth)}, ${Math.round(200 - 90 * warmth)}, ${alpha.toFixed(3)})`
+      : warmth < -0.05
+        ? `rgba(${Math.round(200 + 26 * warmth)}, ${Math.round(225 + 5 * warmth)}, 248, ${alpha.toFixed(3)})`
+        : `rgba(226, 238, 248, ${alpha.toFixed(3)})`;
+  const ux = flowMag > 0.01 ? windVx / flowMag : 1;
+  const uy = flowMag > 0.01 ? liftVy / flowMag : 0;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.1 + Math.min(0.9, flowMag * 0.008);
   for (const p of parts) {
     ctx.beginPath();
     ctx.moveTo(p.x, p.y);
-    ctx.lineTo(p.x - windVx * segScale, p.y - liftVy * segScale);
+    ctx.lineTo(p.x - ux * segLen, p.y - uy * segLen);
     ctx.stroke();
   }
 }
 
-function drawGlider(ctx, x, gy, vxMs, vzMs, vKmh, flightMode, now, highlighted) {
+function drawGlider(ctx, x, gy, vxMs, vzMs, vKmh, flightMode, now, highlighted, S = 1) {
   const unstable = flightMode === "stall" || flightMode === "collapse";
   // shudder + pitch-back when the wing departs normal flight
-  const jx = unstable ? Math.sin(now / 24) * 2.2 : 0;
-  const jy = unstable ? Math.cos(now / 31) * 2.2 : 0;
+  const jx = unstable ? Math.sin(now / 24) * 2.2 * S : 0;
+  const jy = unstable ? Math.cos(now / 31) * 2.2 * S : 0;
   const glideAngle = Math.atan2(vzMs, Math.max(2, Math.abs(vxMs))) * (vxMs >= 0 ? 1 : -1);
   const pitch = unstable ? (flightMode === "stall" ? -0.5 : 0.4) : clamp(glideAngle * 0.5, -0.35, 0.35);
 
   ctx.save();
   ctx.translate(x + jx, gy + jy);
   ctx.rotate(pitch);
+  ctx.scale(S, S);
 
   // canopy
   const span = 21;
@@ -517,7 +533,7 @@ function drawGlider(ctx, x, gy, vxMs, vzMs, vKmh, flightMode, now, highlighted) 
 
   // motion vector
   const angle = Math.atan2(vzMs, vxMs);
-  const arrowLen = Math.max(16, vKmh * 0.5);
+  const arrowLen = Math.max(16, vKmh * 0.5) * S;
   ctx.save();
   ctx.translate(x + jx, gy + jy);
   ctx.rotate(angle);
@@ -539,10 +555,10 @@ function drawGlider(ctx, x, gy, vxMs, vzMs, vKmh, flightMode, now, highlighted) 
   ctx.restore();
 }
 
-function drawWindsock(ctx, W, H, dt, windVx, liftVy, st, highlighted) {
-  const poleHeight = 26;
-  const baseX = W - 34;
-  const groundY = H - 42;
+function drawWindsock(ctx, W, H, dt, windVx, liftVy, st, highlighted, S = 1, groundYIn) {
+  const poleHeight = 26 * S;
+  const baseX = W - 34 * S;
+  const groundY = groundYIn ?? H - 42 * S;
   const baseY = groundY - poleHeight;
   const vx = windVx;
   const vy = liftVy * 0.35;
@@ -564,8 +580,8 @@ function drawWindsock(ctx, W, H, dt, windVx, liftVy, st, highlighted) {
   ctx.lineTo(baseX, baseY);
   ctx.stroke();
 
-  const L = 38 * (0.6 + 0.4 * st.ext);
-  const rHead = 7;
+  const L = 38 * S * (0.6 + 0.4 * st.ext);
+  const rHead = 7 * S;
   const rTail = Math.max(2, rHead * (0.45 + 0.4 * st.ext));
   const uX = Math.cos(st.angle);
   const uY = Math.sin(st.angle);
@@ -596,9 +612,9 @@ function drawWindsock(ctx, W, H, dt, windVx, liftVy, st, highlighted) {
   }
 }
 
-function drawWindsockTooltip(ctx, W, H, { unit, t, envWindKmh }) {
-  const baseX = W - 34;
-  const baseY = H - 42 - 26;
+function drawWindsockTooltip(ctx, W, H, { unit, t, envWindKmh }, S = 1, groundYIn) {
+  const baseX = W - 34 * S;
+  const baseY = (groundYIn ?? H - 42 * S) - 26 * S;
   const magKmh = Math.abs(envWindKmh);
   const val = convertSpeed(magKmh, unit);
   const uLabel = t[`unit_${unit}`];
@@ -623,6 +639,10 @@ function drawWindsockTooltip(ctx, W, H, { unit, t, envWindKmh }) {
   ctx.fillStyle = "#f5b46b";
   ctx.fillText(text, bx + pad, by + 15);
   ctx.restore();
+}
+
+function sceneScale(h) {
+  return clamp(h / 420, 1, 1.9);
 }
 
 function makeParticles(n, w = 720, h = 300) {

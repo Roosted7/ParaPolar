@@ -5,7 +5,7 @@ import { LESSONS } from "../content/lessonContent";
  * Micro-lesson overlay: prompt first, explanation on demand. Selecting a
  * lesson applies its scenario to the live scene (handled by the parent).
  */
-export default function LessonPanel({ t, lang, index, onNavigate, onClose }) {
+export default function LessonPanel({ t, lang, index, achieved, onNavigate, onClose, className }) {
   const lessons = LESSONS[lang] ?? LESSONS.en;
   const lesson = lessons[index];
   const [showWhy, setShowWhy] = useState(false);
@@ -17,7 +17,7 @@ export default function LessonPanel({ t, lang, index, onNavigate, onClose }) {
   };
 
   return (
-    <div className="absolute top-3 left-3 right-3 md:right-auto md:w-[400px] max-h-[calc(100%-24px)] overflow-y-auto bg-ink border border-white/25 shadow-xl p-3.5 text-glacier">
+    <div className={className}>
       <div className="flex items-baseline justify-between gap-2">
         <div className="font-data text-[10px] uppercase tracking-[0.18em] text-thermal-bright">
           {t.lessons} {index + 1} {t.lesson_of} {lessons.length}
@@ -44,6 +44,14 @@ export default function LessonPanel({ t, lang, index, onNavigate, onClose }) {
           {t.lesson_why}
         </button>
       )}
+      <div
+        className={`mt-2.5 flex items-center gap-2 font-data text-[11px] uppercase tracking-[0.1em] ${
+          achieved ? "text-emerald-400" : "text-slate-400"
+        }`}
+      >
+        <span aria-hidden="true">{achieved ? "✓" : "○"}</span>
+        {achieved ? t.lesson_done : t.lesson_goal}
+      </div>
       <div className="flex items-center justify-between mt-3">
         <button
           onClick={() => go(index - 1)}
@@ -64,7 +72,9 @@ export default function LessonPanel({ t, lang, index, onNavigate, onClose }) {
         </div>
         <button
           onClick={() => (index === lessons.length - 1 ? onClose() : go(index + 1))}
-          className="font-data text-[11px] uppercase tracking-[0.1em] px-2.5 py-1 bg-thermal text-ink font-semibold"
+          className={`font-data text-[11px] uppercase tracking-[0.1em] px-2.5 py-1 bg-thermal text-ink font-semibold ${
+            achieved ? "animate-pulse" : ""
+          }`}
         >
           {index === lessons.length - 1 ? `✓ ${t.lesson_close}` : `${t.lesson_next} →`}
         </button>
