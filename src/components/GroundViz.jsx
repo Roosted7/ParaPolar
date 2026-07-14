@@ -10,6 +10,7 @@ export default function GroundViz({
   envWindKmh,
   envLiftMs,
   showVario,
+  groundGlideRatio,
 }) {
   const canvasRef = useRef(null);
   // Keep animation state in refs to avoid React re-renders each frame
@@ -25,21 +26,44 @@ export default function GroundViz({
   // Vario audio
   const audioCtxRef = useRef(null);
   const gainRef = useRef(null);
-  const beepRef = useRef({ enabled: false, vol: 0.5, nextTime: 0, active: false, endAt: 0 });
-  useEffect(() => {
-    try {
-      const e = localStorage.getItem('pp_vario_enabled');
-      const v = localStorage.getItem('pp_vario_vol');
-      if (e === 'true') beepRef.current.enabled = true;
-      if (v) beepRef.current.vol = Math.max(0, Math.min(1, parseFloat(v)));
-    } catch {}
-  }, []);
+  const beepRef = useRef({ vol: 0.5, nextTime: 0 });
+  const [varioEnabled, setVarioEnabled] = useState(false);
+  const ensureAudioContext = () => {
+    if (typeof window === "undefined") return null;
+    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtor) return null;
+    if (!audioCtxRef.current) {
+      const ctx = new AudioCtor();
+      const master = ctx.createGain();
+      master.gain.value = 0.15; // Keep master volume restrained
+      master.connect(ctx.destination);
+      audioCtxRef.current = ctx;
+      gainRef.current = master;
+    } else if (!gainRef.current && audioCtxRef.current) {
+      const master = audioCtxRef.current.createGain();
+      master.gain.value = 0.15;
+      master.connect(audioCtxRef.current.destination);
+      gainRef.current = master;
+    }
+    return audioCtxRef.current;
+  };
 
   // Keep latest params without restarting the loop
   useEffect(() => {
     paramsRef.current = { vxGroundMs, vzGroundMs, airspeedKmh, envWindKmh, envLiftMs, unit, t };
     lastRef.current = performance.now();
   }, [vxGroundMs, vzGroundMs, airspeedKmh, envWindKmh, envLiftMs, unit, t]);
+
+  // Stop audio when vario disabled or showVario is false
+  useEffect(() => {
+    if (!showVario) {
+      setVarioEnabled(false);
+      beepRef.current.nextTime = 0;
+      if (audioCtxRef.current) {
+        try { audioCtxRef.current.suspend && audioCtxRef.current.suspend(); } catch {}
+      }
+    }
+  }, [showVario]);
 
   useEffect(() => {
     let raf;
@@ -328,8 +352,7 @@ export default function GroundViz({
       // - lift: faster beeps, higher pitch (current max kept)
       // - sink: slower beeps, lower pitch
       try {
-        const bee = beepRef.current;
-        if (bee.enabled) {
+        if (showVario && varioEnabled) {
           const climb = Math.max(0, vzMs);
           const sink = Math.max(0, -vzMs);
           if (climb > 0.1 || sink > 0.1) {
@@ -340,14 +363,15 @@ export default function GroundViz({
             const freq = isSink
               ? Math.max(220, 420 - Math.min(200, sink * 60))
               : 650 + Math.min(900, climb * 220);
-            if (now / 1000 >= bee.nextTime) {
-              if (!audioCtxRef.current) {
-                audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-                gainRef.current = audioCtxRef.current.createGain();
-                gainRef.current.gain.value = bee.vol * 0.3; // master gain
-                gainRef.current.connect(audioCtxRef.current.destination);
+            if (now / 1000 >= beepRef.current.nextTime) {
+              const ac = ensureAudioContext();
+              if (!ac || !gainRef.current) {
+                beepRef.current.nextTime = now / 1000 + 0.5;
+                return;
               }
-              const ac = audioCtxRef.current;
+              if (ac.state === "suspended" && ac.resume) {
+                try { ac.resume(); } catch {}
+              }
               const osc = ac.createOscillator();
               osc.type = 'square';
               osc.frequency.setValueAtTime(freq, ac.currentTime);
@@ -357,11 +381,11 @@ export default function GroundViz({
               osc.connect(g);
               const dur = isSink ? 0.06 : (0.08 + Math.min(0.08, climb * 0.02));
               const t0 = ac.currentTime;
-              g.gain.linearRampToValueAtTime(bee.vol, t0 + 0.01);
+              g.gain.linearRampToValueAtTime(0.5, t0 + 0.01);
               g.gain.linearRampToValueAtTime(0, t0 + dur);
               osc.start();
               osc.stop(t0 + dur + 0.02);
-              bee.nextTime = now / 1000 + period;
+              beepRef.current.nextTime = now / 1000 + period;
             }
           } else {
             // no tone in sink/calm; let scheduled end naturally
@@ -375,13 +399,23 @@ export default function GroundViz({
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
+      if (audioCtxRef.current) {
+        try { audioCtxRef.current.close && audioCtxRef.current.close(); } catch {}
+        audioCtxRef.current = null;
+      }
+      gainRef.current = null;
+      beepRef.current.nextTime = 0;
     };
   }, []);
+
+  const groundRatioLabel = typeof groundGlideRatio === "number"
+    ? `${groundGlideRatio.toFixed(1)}:1`
+    : "—";
 
   return (
     <div className="w-full" style={{ minHeight: "280px" }}>
       <div className="text-sm text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-3">
-        <span>{t.glide_ratio_ground}: {((-vzGroundMs) / (vxGroundMs || 1)).toFixed(1) + ":1"}</span>
+        <span>{t.glide_ratio_ground}: {groundRatioLabel}</span>
         <span>
           {t.groundspeed}: {(() => {
             const gsKmh = vxGroundMs * 3.6;
@@ -402,18 +436,26 @@ export default function GroundViz({
         <span className="ml-auto flex items-center gap-2">
           {showVario && (
           <button
-            title={beepRef.current.enabled ? "Mute vario" : "Unmute vario"}
-            className={`px-2 py-1 text-sm rounded-full border transition-colors ${beepRef.current.enabled ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'}`}
+            title={varioEnabled ? 'Mute vario' : 'Unmute vario'}
+            className={`px-2 py-1 text-sm rounded-full border transition-colors ${varioEnabled ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'}`}
             onClick={() => {
-              const b = beepRef.current; b.enabled = !b.enabled;
-              try { localStorage.setItem('pp_vario_enabled', b.enabled ? 'true' : 'false'); } catch {}
-              if (!b.enabled && audioCtxRef.current) {
-                audioCtxRef.current.suspend && audioCtxRef.current.suspend();
-              } else if (b.enabled && audioCtxRef.current) {
-                audioCtxRef.current.resume && audioCtxRef.current.resume();
+              const next = !varioEnabled;
+              setVarioEnabled(next);
+              // Suspend/Resume context for power when toggling
+              if (!next) {
+                beepRef.current.nextTime = 0;
+                if (audioCtxRef.current) {
+                  try { audioCtxRef.current.suspend && audioCtxRef.current.suspend(); } catch {}
+                }
+              } else {
+                const ac = ensureAudioContext();
+                if (ac && ac.resume) {
+                  try { ac.resume(); } catch {}
+                }
+                beepRef.current.nextTime = 0;
               }
             }}
-          >{beepRef.current.enabled ? '🔊 On' : '� Off'}</button>)}
+          >{varioEnabled ? '🔊 On' : '🔇 Off'}</button>)}
         </span>
       </div>
       <canvas

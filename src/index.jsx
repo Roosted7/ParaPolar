@@ -277,7 +277,8 @@ export default function App() {
   // Lift (>0) reduces sink → add to vz (which is typically negative)
   const vzGroundMs = vzAirEff + envLiftMs;
 
-  const GR_ground = vxGroundMs > 0 ? -vzGroundMs / vxGroundMs : 0;
+  const hasForwardGlide = vxGroundMs > 0.1 && vzGroundMs < -0.05;
+  const GR_ground = hasForwardGlide ? -vzGroundMs / vxGroundMs : null;
   const GR_air =
     displaySpeedKmh > 0 ? -vzAirEff / (displaySpeedKmh * KMH_TO_MS) : 0;
 
@@ -637,7 +638,7 @@ export default function App() {
                       {t.glide_ratio_ground}
                     </span>
                     <span className="font-medium">
-                      {((-vzGroundMs) / (vxGroundMs || 1)).toFixed(1) + ":1"}
+                      {GR_ground != null ? `${GR_ground.toFixed(1)}:1` : "—"}
                     </span>
                   </div>
                 </div>
@@ -685,6 +686,7 @@ export default function App() {
                 envWindKmh={envWindKmh}
                 envLiftMs={envLiftMs}
                 showVario={mode === "advanced"}
+                groundGlideRatio={GR_ground}
               />
             </div>
           </section>

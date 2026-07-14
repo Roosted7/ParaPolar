@@ -28,6 +28,7 @@
     "preview": "vite preview",
     "cf:dev": "wrangler dev",
     "deploy": "vite build && wrangler deploy",
+    "deploy:dev": "vite build && wrangler deploy --env dev",
     "test": "echo \"No test configured\" && exit 0"
   },
   "browserslist": [
