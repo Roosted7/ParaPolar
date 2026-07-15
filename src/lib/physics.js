@@ -50,18 +50,78 @@ export function buildNaturalCubicSpline(xs, ys) {
   return { eval: evalAt };
 }
 
-/** Estimate the stall point a little slower and much sinkier than min-sink. */
-export function deriveStallPoint(minSpeedKmh, minSinkMs) {
-  const stallSpeed = Math.max(10, minSpeedKmh - 6);
-  const stallSink = Math.min(-3.5, minSinkMs * 2.2);
+/**
+ * Estimate the stall point: a little slower than min-sink, with sink growing
+ * in proportion to how far below min-sink the wing is pushed (keeps the
+ * spline physical when certified stall speeds sit close to min-sink).
+ */
+export function deriveStallPoint(minSpeedKmh, minSinkMs, stallSpeedKmh) {
+  const stallSpeed = Number.isFinite(stallSpeedKmh)
+    ? stallSpeedKmh
+    : Math.max(10, minSpeedKmh - 6);
+  const gap = Math.max(1.5, minSpeedKmh - stallSpeed);
+  const stallSink = Math.min(-2.0, minSinkMs - 0.5 * gap);
   return { stallSpeed, stallSink };
+}
+
+/**
+ * Shape-preserving cubic Hermite interpolation (Fritsch–Carlson). Unlike a
+ * natural cubic spline it never overshoots between anchors — essential for
+ * polars: min-sink must stay exactly at the min-sink anchor, or the
+ * best-glide search finds a fictitious bump.
+ */
+export function buildMonotoneCubicSpline(xs, ys) {
+  const n = xs.length;
+  const h = [];
+  const delta = [];
+  for (let i = 0; i < n - 1; i++) {
+    h.push(xs[i + 1] - xs[i]);
+    delta.push((ys[i + 1] - ys[i]) / h[i]);
+  }
+  const m = new Array(n);
+  m[0] = delta[0];
+  m[n - 1] = delta[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    m[i] = delta[i - 1] * delta[i] <= 0 ? 0 : (delta[i - 1] + delta[i]) / 2;
+  }
+  for (let i = 0; i < n - 1; i++) {
+    if (delta[i] === 0) {
+      m[i] = 0;
+      m[i + 1] = 0;
+    } else {
+      const a = m[i] / delta[i];
+      const b = m[i + 1] / delta[i];
+      const s = a * a + b * b;
+      if (s > 9) {
+        const tau = 3 / Math.sqrt(s);
+        m[i] = tau * a * delta[i];
+        m[i + 1] = tau * b * delta[i];
+      }
+    }
+  }
+  function evalAt(x) {
+    if (x <= xs[0]) return ys[0];
+    if (x >= xs[n - 1]) return ys[n - 1];
+    let i = 0;
+    while (i < n - 2 && x > xs[i + 1]) i++;
+    const t = (x - xs[i]) / h[i];
+    const t2 = t * t;
+    const t3 = t2 * t;
+    return (
+      ys[i] * (2 * t3 - 3 * t2 + 1) +
+      m[i] * h[i] * (t3 - 2 * t2 + t) +
+      ys[i + 1] * (-2 * t3 + 3 * t2) +
+      m[i + 1] * h[i] * (t3 - t2)
+    );
+  }
+  return { eval: evalAt };
 }
 
 /** Build vz(vx) from anchor points ({x: km/h, y: m/s}). */
 export function makePolarFunction(points) {
   const xs = points.map((p) => p.x);
   const ys = points.map((p) => p.y);
-  const spline = buildNaturalCubicSpline(xs, ys);
+  const spline = buildMonotoneCubicSpline(xs, ys);
   return (vx) => spline.eval(vx);
 }
 
@@ -72,7 +132,8 @@ export function makePolarFunction(points) {
 export function buildPolar(gliderPolarData, wingLoad = 1.0) {
   const s = Math.sqrt(wingLoad);
   const pd = gliderPolarData;
-  const stall = deriveStallPoint(pd.min_sink_speed_kmh, pd.min_sink_rate_ms);
+  // Certified stall speeds differ per class — explicit data wins over the heuristic.
+  const stall = deriveStallPoint(pd.min_sink_speed_kmh, pd.min_sink_rate_ms, pd.stall_speed_kmh);
   const anchors = [
     { x: stall.stallSpeed * s, y: stall.stallSink * s },
     { x: pd.min_sink_speed_kmh * s, y: pd.min_sink_rate_ms * s },

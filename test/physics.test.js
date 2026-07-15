@@ -84,6 +84,43 @@ describe("buildPolar", () => {
   });
 });
 
+describe("polar shape preservation", () => {
+  it("never sinks less than the min-sink anchor (no spline overshoot)", () => {
+    for (const g of GLIDERS) {
+      const polar = buildPolar(g.polar_data, 1.0);
+      let least = -Infinity;
+      for (let v = polar.range[0]; v <= polar.range[1]; v += 0.05) {
+        least = Math.max(least, polar.f(v));
+      }
+      expect(least, g.id).toBeCloseTo(g.polar_data.min_sink_rate_ms, 3);
+    }
+  });
+});
+
+describe("per-wing stall speeds", () => {
+  it("uses each glider's certified stall speed as the polar's slow end", () => {
+    const expected = {
+      "single-skin": 20,
+      "en-a": 22,
+      "en-b-low": 23,
+      "en-b-plus": 23,
+      "en-c": 24,
+      tandem: 27,
+    };
+    for (const g of GLIDERS) {
+      const polar = buildPolar(g.polar_data, 1.0);
+      expect(polar.range[0], g.id).toBeCloseTo(expected[g.id], 6);
+    }
+  });
+
+  it("stall speeds rise with class: single-skin < EN-A < EN-C < tandem", () => {
+    const at = (id) => buildPolar(GLIDERS.find((g) => g.id === id).polar_data, 1.0).range[0];
+    expect(at("single-skin")).toBeLessThan(at("en-a"));
+    expect(at("en-a")).toBeLessThan(at("en-c"));
+    expect(at("en-c")).toBeLessThan(at("tandem"));
+  });
+});
+
 describe("findBestGlidePoint", () => {
   const polar = buildPolar(GLIDERS.find((g) => g.id === "en-a").polar_data, 1.0);
   const search = (windKmh, liftMs) =>

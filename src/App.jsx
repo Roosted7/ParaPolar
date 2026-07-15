@@ -30,13 +30,26 @@ import InstrumentPod from "./components/InstrumentPod";
 import SpeedControl from "./components/SpeedControl";
 import LessonPanel from "./components/LessonPanel";
 import ChallengePanel from "./components/ChallengePanel";
+import LandingPanel from "./components/LandingPanel";
 import { LESSONS } from "./content/lessonContent";
 import { lessonAchieved, minSinkSpeedKmh } from "./lib/lessons";
+import { scoreLanding, estimateLandingBand } from "./lib/landing";
 import { track } from "./lib/beacon";
 
 // Vertical speeds used to dramatize invalid flight regimes (m/s).
 const STALL_DROP = -6.0;
 const COLLAPSE_DROP = -8.0;
+
+/**
+ * Roll fresh spot-landing conditions (called from an event handler — the
+ * randomness lives outside the component so its body stays pure).
+ */
+function rollLandingSetup(polarF, speedRange) {
+  const wind = 6 + Math.round(Math.random() * 14);
+  const band = estimateLandingBand(polarF, speedRange, wind);
+  const targetM = band.minM + (0.25 + 0.5 * Math.random()) * (band.maxM - band.minM);
+  return { wind, run: { runId: Date.now(), targetM } };
+}
 
 /** Minimal-chrome mode for iframe embeds (?embed=1). */
 function isEmbed() {
@@ -102,9 +115,11 @@ export default function App() {
     setPreset(id);
     const p = PRESETS.find((x) => x.id === id);
     if (!p) return;
+    if (p.gliderId) setGliderId(p.gliderId);
     setWindKmh(p.windKmh);
     setLiftMs(p.liftMs);
     setPilotSlider(p.pilotSlider);
+    setBigEars(!!p.ears);
   };
 
   const clearPreset = () => setPreset("none");
@@ -123,6 +138,7 @@ export default function App() {
       setPilotSlider(DEFAULT_STATE.pilotSlider);
       setSimpleWind(DEFAULT_STATE.simpleWind);
     }
+    setBigEars(false);
   };
 
   // ===== Phase-3 features: lessons, challenge, comparison, classroom =====
@@ -131,6 +147,12 @@ export default function App() {
   const [challengeOpen, setChallengeOpen] = useState(false);
   const [compareGliderId, setCompareGliderId] = useState(null);
   const [classroom, setClassroom] = useState(false);
+  const [bigEars, setBigEars] = useState(false);
+  // Spot-landing challenge
+  const [landingOpen, setLandingOpen] = useState(false);
+  const [landingLevel, setLandingLevel] = useState(1);
+  const [landingRun, setLandingRun] = useState(null); // {runId, targetFrac}
+  const [landingResult, setLandingResult] = useState(null);
   // Desktop sidebar (scene and controls side-by-side). Open by default.
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
@@ -146,11 +168,19 @@ export default function App() {
     storage.setItem("pp_sidebar", sidebarOpen ? "open" : "closed");
   }, [sidebarOpen]);
 
+  const closeLanding = () => {
+    setLandingOpen(false);
+    setLandingRun(null);
+    setLandingResult(null);
+  };
+
   const openLesson = (idx) => {
     const lesson = (LESSONS[lang] ?? LESSONS.en)[idx];
     if (!lesson) return;
     introCancelRef.current?.();
     setChallengeOpen(false);
+    closeLanding();
+    setBigEars(false);
     setMode("advanced");
     setPreset("none");
     const su = lesson.setup;
@@ -166,8 +196,37 @@ export default function App() {
   const openChallenge = () => {
     introCancelRef.current?.();
     setLessonIdx(null);
+    closeLanding();
     setMode("advanced");
     setChallengeOpen(true);
+  };
+
+  const openLanding = () => {
+    introCancelRef.current?.();
+    setLessonIdx(null);
+    setChallengeOpen(false);
+    setMode("advanced");
+    setPreset("none");
+    setLandingResult(null);
+    setLandingOpen(true);
+  };
+
+  const startLandingRun = () => {
+    // Fresh conditions every attempt; the target is placed inside what THIS
+    // wing can reach in THIS wind (see estimateLandingBand).
+    const { wind, run } = rollLandingSetup(polar.f, polar.range);
+    setWindKmh(wind);
+    setLiftMs(0);
+    setPilotSlider(60);
+    setBigEars(false);
+    setLandingResult(null);
+    setLandingRun(run);
+  };
+
+  const onLanded = (res) => {
+    const { score, verdictKey } = scoreLanding(res);
+    setLandingResult({ ...res, score, verdictKey });
+    track("challenge_flown", { d1: "landing", v1: score });
   };
 
   // Deep link: ?lesson=1..6 opens a lesson directly (used by learn pages).
@@ -302,14 +361,21 @@ export default function App() {
 
   // ===== Kinematics =====
   const vzAirMs = polar.f(displaySpeedKmh);
+  // Big ears: folded tips add drag — noticeably more sink, slightly less
+  // airspeed, while the wing keeps flying (the standard descent technique).
+  const earsActive = bigEars && mode === "advanced" && flightMode === "normal";
   const vzAirEff =
-    flightMode === "stall" ? STALL_DROP : flightMode === "collapse" ? COLLAPSE_DROP : vzAirMs;
+    flightMode === "stall"
+      ? STALL_DROP
+      : flightMode === "collapse"
+        ? COLLAPSE_DROP
+        : vzAirMs - (earsActive ? 1.15 : 0);
   const airspeedForPhysicsKmh =
     flightMode === "stall"
       ? Math.max(0, displaySpeedKmh * 0.3)
       : flightMode === "collapse"
         ? Math.max(0, displaySpeedKmh * 0.6)
-        : displaySpeedKmh;
+        : displaySpeedKmh * (earsActive ? 0.94 : 1);
 
   const vxGroundMs = (airspeedForPhysicsKmh - envWindKmh) * KMH_TO_MS;
   const vzGroundMs = vzAirEff + envLiftMs; // lift (>0) reduces sink
@@ -443,6 +509,19 @@ export default function App() {
         className={className}
       />
     );
+  const landingPanel = (className) =>
+    landingOpen && (
+      <LandingPanel
+        t={t}
+        level={landingLevel}
+        setLevel={setLandingLevel}
+        running={landingRun != null && landingResult == null}
+        result={landingResult}
+        onStart={startLandingRun}
+        onClose={closeLanding}
+        className={className}
+      />
+    );
   const challengePanel = (className) =>
     challengeOpen &&
     lessonIdx == null && (
@@ -470,12 +549,17 @@ export default function App() {
         envLiftMs={envLiftMs}
         flightMode={flightMode}
         showVario={mode === "advanced"}
+        earsOn={earsActive}
+        showEars={mode === "advanced" && !embed}
+        onToggleEars={() => setBigEars((v) => !v)}
+        landing={landingRun ? { ...landingRun, level: landingLevel } : null}
+        onLanded={onLanded}
         onDragSpeed={dragSpeedBy}
         onDragWind={dragWindTo}
       />
 
       {/* Scenario chips (advanced, hidden while a lesson/challenge panel is open) */}
-      {mode === "advanced" && lessonIdx == null && !challengeOpen && (
+      {mode === "advanced" && lessonIdx == null && !challengeOpen && !landingOpen && (
         <div
           className={`absolute top-3 left-3 flex gap-1.5 flex-wrap pointer-events-none ${
             embed || sidebarOpen
@@ -499,12 +583,20 @@ export default function App() {
             </button>
           ))}
           {!embed && (
-            <button
-              onClick={openChallenge}
-              className="pointer-events-auto font-data text-[10px] uppercase tracking-[0.1em] px-2.5 py-1.5 border backdrop-blur-[2px] bg-ink/50 text-thermal-bright border-thermal/60 hover:border-thermal"
-            >
-              ⚑ {t.challenge}
-            </button>
+            <>
+              <button
+                onClick={openChallenge}
+                className="pointer-events-auto font-data text-[10px] uppercase tracking-[0.1em] px-2.5 py-1.5 border backdrop-blur-[2px] bg-ink/50 text-thermal-bright border-thermal/60 hover:border-thermal"
+              >
+                ⚑ {t.challenge}
+              </button>
+              <button
+                onClick={openLanding}
+                className="pointer-events-auto font-data text-[10px] uppercase tracking-[0.1em] px-2.5 py-1.5 border backdrop-blur-[2px] bg-ink/50 text-thermal-bright border-thermal/60 hover:border-thermal"
+              >
+                ⌖ {t.landing}
+              </button>
+            </>
           )}
         </div>
       )}
@@ -512,6 +604,7 @@ export default function App() {
       {/* Lesson & challenge overlays (md+; on mobile they render below the scene) */}
       {lessonPanel(PANEL_OVERLAY)}
       {challengePanel(PANEL_OVERLAY)}
+      {landingPanel(PANEL_OVERLAY)}
 
       {/* Instrument pods — aviation-universal abbreviations, no translation */}
       <div className="absolute bottom-3 left-3 flex gap-1.5 pointer-events-none">
@@ -660,6 +753,7 @@ export default function App() {
           {/* Lesson & challenge panels: below the scene on mobile */}
           {lessonPanel(PANEL_INLINE)}
           {challengePanel(PANEL_INLINE)}
+          {landingPanel(PANEL_INLINE)}
 
           {/* ===== Primary control: the speed rail ===== */}
           <section className="shrink-0 bg-white dark:bg-ink-soft border border-slate-200 dark:border-white/10 px-4 py-3 md:px-6">

@@ -8,17 +8,16 @@ const polar = buildPolar(enA.polar_data, 1.0);
 const lm = speedLandmarks(polar, enA.polar_data.trim_speed_kmh, 1.0);
 
 describe("sliderToSpeed", () => {
-  it("hits the landmarks at the segment boundaries", () => {
+  it("hits the landmarks at the segment boundaries (full bar IS vmax)", () => {
     expect(sliderToSpeed(0, lm)).toBeCloseTo(lm.deepStallX, 6);
     expect(sliderToSpeed(25, lm)).toBeCloseTo(lm.stallX, 6);
     expect(sliderToSpeed(50, lm)).toBeCloseTo(lm.trimX, 6);
     expect(sliderToSpeed(100, lm)).toBeCloseTo(lm.vmaxX, 6);
-    expect(sliderToSpeed(120, lm)).toBeCloseTo(lm.overSpeedX, 6);
   });
 
   it("is monotonically increasing", () => {
     let prev = -Infinity;
-    for (let s = 0; s <= 120; s += 1) {
+    for (let s = 0; s <= 100; s += 1) {
       const v = sliderToSpeed(s, lm);
       expect(v).toBeGreaterThanOrEqual(prev);
       prev = v;

@@ -3,6 +3,7 @@ export const GLIDERS = [
     id: "single-skin",
     display: "Single‑Skin",
     polar_data: {
+      stall_speed_kmh: 20,
       min_sink_speed_kmh: 25,
       min_sink_rate_ms: -1.2,
       trim_speed_kmh: 38,
@@ -16,6 +17,7 @@ export const GLIDERS = [
     id: "en-a",
     display: "EN‑A (Beginner)",
     polar_data: {
+      stall_speed_kmh: 22,
       min_sink_speed_kmh: 26,
       min_sink_rate_ms: -1.1,
       trim_speed_kmh: 35,
@@ -29,6 +31,7 @@ export const GLIDERS = [
     id: "en-b-low",
     display: "EN‑B (Progression)",
     polar_data: {
+      stall_speed_kmh: 23,
       min_sink_speed_kmh: 28,
       min_sink_rate_ms: -1.05,
       trim_speed_kmh: 36,
@@ -42,6 +45,7 @@ export const GLIDERS = [
     id: "en-b-plus",
     display: "EN‑B+ (XC)",
     polar_data: {
+      stall_speed_kmh: 23,
       min_sink_speed_kmh: 29,
       min_sink_rate_ms: -1.0,
       trim_speed_kmh: 36,
@@ -55,6 +59,7 @@ export const GLIDERS = [
     id: "en-c",
     display: "EN‑C (Performance)",
     polar_data: {
+      stall_speed_kmh: 24,
       min_sink_speed_kmh: 30,
       min_sink_rate_ms: -0.98,
       trim_speed_kmh: 37,
@@ -68,6 +73,7 @@ export const GLIDERS = [
     id: "tandem",
     display: "Tandem",
     polar_data: {
+      stall_speed_kmh: 27,
       min_sink_speed_kmh: 30,
       min_sink_rate_ms: -1.0,
       trim_speed_kmh: 40,

@@ -21,6 +21,10 @@ export default [
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": "warn",
+      // Advisory from the React Compiler (which this build doesn't use):
+      // "compilation skipped" only means no auto-memoization for that
+      // component — the manual useMemos still work at runtime.
+      "react-hooks/preserve-manual-memoization": "warn",
       "no-unused-vars": ["error", { varsIgnorePattern: "^[A-Z_]" }],
     },
   },

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { KMH_TO_MS, clamp, convertSpeed } from "../lib/units";
+import { landingStep, windGust, windGradient, APPROACH_ALT_M } from "../lib/landing";
 
 /**
  * The scene: a paraglider flying over terrain, wind/lift particles, and a
@@ -22,6 +23,11 @@ export default function GroundViz({
   envLiftMs,
   flightMode,
   showVario,
+  earsOn,
+  showEars,
+  onToggleEars,
+  landing,
+  onLanded,
   onDragSpeed,
   onDragWind,
 }) {
@@ -29,7 +35,8 @@ export default function GroundViz({
   const posRef = useRef({ x: 80, y: 150 }); // y = altitude px above ground line
   const particlesRef = useRef(makeParticles(110));
   const lastRef = useRef(0);
-  const paramsRef = useRef({ vxGroundMs, vzGroundMs, airspeedKmh, envWindKmh, envLiftMs, flightMode, unit, t });
+  const paramsRef = useRef({ vxGroundMs, vzGroundMs, airspeedKmh, envWindKmh, envLiftMs, flightMode, earsOn, landing, unit, t });
+  const landingStateRef = useRef({ runId: null, landed: false });
   const windsockRef = useRef({ angle: -Math.PI / 2, ext: 0.1, phase: 0 });
   const dimsRef = useRef({ w: 0, h: 0 });
   const hoverRef = useRef({ overSock: false, overWing: false });
@@ -38,8 +45,8 @@ export default function GroundViz({
 
   // Keep latest params/callbacks without restarting the loop.
   useEffect(() => {
-    paramsRef.current = { vxGroundMs, vzGroundMs, airspeedKmh, envWindKmh, envLiftMs, flightMode, unit, t };
-    callbacksRef.current = { onDragSpeed, onDragWind };
+    paramsRef.current = { vxGroundMs, vzGroundMs, airspeedKmh, envWindKmh, envLiftMs, flightMode, earsOn, landing, unit, t };
+    callbacksRef.current = { onDragSpeed, onDragWind, onLanded };
   });
 
   // Vario audio (unchanged model: refs feed the loop, state feeds the button)
@@ -193,25 +200,82 @@ export default function GroundViz({
         envWindKmh: wKmh,
         envLiftMs: lMs,
         flightMode: fMode,
+        landing: L,
       } = paramsRef.current;
+
+      const groundY = H - 42 * S;
+      const tSecPre = now / 1000;
+      // Landing world: one shared, realistic px-per-meter scale (no vertical
+      // exaggeration), fitted so the whole approach and the target are on
+      // screen and the entry altitude fits above the terrain.
+      const targetM = L ? L.targetM : 100;
+      const pxPerM = Math.min((W * 0.85) / (targetM + 30), (groundY - 16 * S) / APPROACH_ALT_M);
+      const startX = W * 0.05;
+      const lState = landingStateRef.current;
 
       // ---- Update glider position ----
       const PX_PER_MS = (W / 720) * 8; // horizontal px/s per m/s
       let { x, y } = posRef.current;
-      x += vxMs * PX_PER_MS * dt;
-      y = Math.max(0, y + vzMs * 25 * (W / 720) * dt);
-      const groundY = H - 42 * S;
-      const gy = groundY - y;
 
-      const margin = 46;
-      const terrainTop = groundY - 18 * S; // bumps rise above the baseline
-      if (x > W + margin || x < -margin || gy < -margin || gy >= terrainTop) {
-        const strongLift = lMs > 1.5;
-        const strongSink = lMs < -1.5;
-        x = vxMs >= 0 ? -24 : W + 24;
-        if (gy >= terrainTop || strongSink) y = Math.min(groundY - 12, H * 0.55);
-        else if (gy < -margin || strongLift) y = H * 0.25;
-        else y = H * 0.45;
+      if (L) {
+        if (lState.runId !== L.runId) {
+          lState.runId = L.runId;
+          lState.landed = false;
+          x = startX;
+          y = APPROACH_ALT_M * pxPerM;
+        }
+        if (!lState.landed) {
+          // The airmass acts on the WING here: gusts, the ground gradient,
+          // and (by difficulty) turbulence — exactly what a real final feels like.
+          const step = landingStep(
+            { x, y },
+            {
+              airspeedKmh: vKmh,
+              windKmh: wKmh,
+              vzMs,
+              level: L.level,
+              groundY,
+              pxPerM,
+              tSec: tSecPre,
+            },
+            dt,
+          );
+          x = step.x;
+          y = step.y;
+          const targetX = startX + targetM * pxPerM;
+          if (y <= 1) {
+            lState.landed = true;
+            callbacksRef.current.onLanded?.({
+              distanceM: (x - targetX) / pxPerM,
+              vzMs: step.vzMs,
+              gsMs: step.gsMs,
+              missed: false,
+            });
+          } else if (x > W + 30 || x < -30) {
+            lState.landed = true;
+            callbacksRef.current.onLanded?.({
+              distanceM: (x - targetX) / pxPerM,
+              vzMs: step.vzMs,
+              gsMs: step.gsMs,
+              missed: true,
+            });
+          }
+        }
+      } else {
+        lState.runId = null;
+        x += vxMs * PX_PER_MS * dt;
+        y = Math.max(0, y + vzMs * 25 * (W / 720) * dt);
+        const gyFree = groundY - y;
+        const margin = 46;
+        const terrainTop = groundY - 18 * S; // bumps rise above the baseline
+        if (x > W + margin || x < -margin || gyFree < -margin || gyFree >= terrainTop) {
+          const strongLift = lMs > 1.5;
+          const strongSink = lMs < -1.5;
+          x = vxMs >= 0 ? -24 : W + 24;
+          if (gyFree >= terrainTop || strongSink) y = Math.min(groundY - 12, H * 0.55);
+          else if (gyFree < -margin || strongLift) y = H * 0.25;
+          else y = H * 0.45;
+        }
       }
       posRef.current = { x, y };
 
@@ -238,12 +302,23 @@ export default function GroundViz({
       // ---- Draw ----
       ctx.clearRect(0, 0, W, H);
       drawTerrain(ctx, W, H, groundY, S);
-      drawParticles(ctx, parts, lMs, windVx * gust, liftVy);
+      if (!(L && L.level === 2)) {
+        drawParticles(ctx, parts, lMs, windVx * gust, liftVy);
+      }
       drawWindsock(ctx, W, H, dt, windVx * gust, liftVy, windsockRef.current, hoverRef.current.overSock, S, groundY);
       if (hoverRef.current.overSock || dragRef.current?.type === "sock") {
         drawWindsockTooltip(ctx, W, H, paramsRef.current, S, groundY);
       }
-      drawGlider(ctx, x, groundY - y, vxMs, vzMs, vKmh, fMode, now, hoverRef.current.overWing, S);
+      if (L) {
+        drawLandingTarget(ctx, startX + targetM * pxPerM, groundY, S);
+        if (!lState.landed) {
+          const altM = y / pxPerM;
+          ctx.font = `${Math.round(11 * S)}px ui-monospace, Consolas, monospace`;
+          ctx.fillStyle = "rgba(230, 238, 246, 0.85)";
+          ctx.fillText(`${altM.toFixed(0)} m`, x + 26 * S, groundY - y - 10 * S);
+        }
+      }
+      drawGlider(ctx, x, groundY - y, vxMs, vzMs, vKmh, fMode, now, hoverRef.current.overWing, S, paramsRef.current.earsOn);
 
       // ---- Vario audio ----
       if (varioActiveRef.current) scheduleVarioBeep(now, vzMs);
@@ -408,6 +483,20 @@ export default function GroundViz({
           endDrag(e);
         }}
       />
+      {showEars && (
+        <button
+          title={t.big_ears}
+          aria-pressed={earsOn}
+          className={`absolute bottom-[104px] left-3 font-data text-[11px] tracking-[0.1em] uppercase px-2.5 py-1.5 border backdrop-blur-[2px] transition-colors ${
+            earsOn
+              ? "bg-thermal text-ink border-thermal font-semibold"
+              : "bg-ink/60 text-glacier border-white/25"
+          }`}
+          onClick={onToggleEars}
+        >
+          {t.big_ears} {earsOn ? "▼" : "—"}
+        </button>
+      )}
       {showVario && (
         <div className="absolute bottom-16 left-3 flex gap-1.5">
           <button
@@ -494,18 +583,9 @@ function drawParticles(ctx, parts, lMs, windVx, liftVy) {
   }
 }
 
-/** Smooth multi-sine gustiness, mean ~1, range roughly 0.75..1.25. */
-function windGust(t) {
-  return 1 + 0.16 * Math.sin(t * 0.8) * Math.sin(t * 0.33 + 1.7) + 0.07 * Math.sin(t * 2.3 + 0.5);
-}
-
-/** Wind gradient: flow slows toward the ground (≈45% at the surface). */
-function windGradient(y, groundY) {
-  return 0.45 + 0.55 * clamp((groundY - y) / (groundY * 0.55), 0, 1);
-}
 
 
-function drawGlider(ctx, x, gy, vxMs, vzMs, vKmh, flightMode, now, highlighted, S = 1) {
+function drawGlider(ctx, x, gy, vxMs, vzMs, vKmh, flightMode, now, highlighted, S = 1, ears = false) {
   const unstable = flightMode === "stall" || flightMode === "collapse";
   // shudder + pitch-back when the wing departs normal flight
   const jx = unstable ? Math.sin(now / 24) * 2.2 * S : 0;
@@ -518,15 +598,23 @@ function drawGlider(ctx, x, gy, vxMs, vzMs, vKmh, flightMode, now, highlighted, 
   ctx.rotate(pitch);
   ctx.scale(S, S);
 
-  // canopy
-  const span = 21;
+  // canopy (big ears: tips folded under — shorter span, drooping tip stubs)
+  const span = ears ? 15 : 21;
   ctx.beginPath();
-  ctx.ellipse(0, -15, span, 7.5, 0, Math.PI, 2 * Math.PI);
+  ctx.ellipse(0, -15, span, ears ? 6.5 : 7.5, 0, Math.PI, 2 * Math.PI);
   ctx.fillStyle = highlighted ? "#f5b46b" : "#e8833a";
   ctx.fill();
   ctx.strokeStyle = "rgba(16, 26, 40, 0.55)";
   ctx.lineWidth = 1;
   ctx.stroke();
+  if (ears) {
+    ctx.fillStyle = "#b55f24";
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(side * (span - 1), -11, 4.5, 3, side * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 
   // lines
   ctx.strokeStyle = "rgba(230, 238, 246, 0.75)";
@@ -662,6 +750,35 @@ function drawWindsockTooltip(ctx, W, H, { unit, t, envWindKmh }, S = 1, groundYI
 
 function sceneScale(h) {
   return clamp(h / 420, 1, 1.9);
+}
+
+function drawLandingTarget(ctx, targetX, groundY, S = 1) {
+  // concentric rings flattened on the ground + a small flag
+  const ry = 3.2 * S;
+  const rings = [
+    { r: 16 * S, color: "rgba(237, 241, 244, 0.85)" },
+    { r: 10 * S, color: "#c96f5e" },
+    { r: 4.5 * S, color: "#edf1f4" },
+  ];
+  for (const ring of rings) {
+    ctx.beginPath();
+    ctx.ellipse(targetX, groundY + 2 * S, ring.r, ry * (ring.r / (16 * S)) + 1.2, 0, 0, Math.PI * 2);
+    ctx.fillStyle = ring.color;
+    ctx.fill();
+  }
+  ctx.strokeStyle = "rgba(230, 238, 246, 0.8)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(targetX, groundY + 2 * S);
+  ctx.lineTo(targetX, groundY - 18 * S);
+  ctx.stroke();
+  ctx.fillStyle = "#e8833a";
+  ctx.beginPath();
+  ctx.moveTo(targetX, groundY - 18 * S);
+  ctx.lineTo(targetX + 10 * S, groundY - 14.5 * S);
+  ctx.lineTo(targetX, groundY - 11 * S);
+  ctx.closePath();
+  ctx.fill();
 }
 
 function makeParticles(n, w = 720, h = 300) {

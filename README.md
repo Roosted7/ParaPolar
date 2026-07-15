@@ -11,6 +11,9 @@ Explore how wind, lift, MacCready setting, and wing loading change best glide an
 - **Speed rail** with trim tick and a speed-to-fly (STF) notch the knob snaps onto; stall/collapse warnings with wing shudder
 - **Lessons**: six localized micro-lessons from "meet the polar" to backwind flight, each applying a live scenario
 - **Valley-crossing challenge**: pick a speed, fly 3 km, get scored against the optimal speed-to-fly
+- **Spot-landing challenge**: gusts, near-ground turbulence (by difficulty) and a real wind gradient act on the wing; the target is placed inside what your wing can reach; scored on distance and touchdown quality
+- **Big ears** control with folded-tip visuals — the classic descent technique, correctly modeled (more sink, slightly less airspeed)
+- **Accurate polars**: per-wing certified stall speeds, monotone (shape-preserving) spline so min-sink stays where the data says, and full bar = vmax (collapses are a turbulence risk, not an automatic overspeed)
 - **Learn pages** (`/learn`): pre-rendered articles in 4 languages with the app embedded as an interactive widget; sitemap + hreflang SEO
 - **Embeds**: `?embed=1` minimal-chrome mode for iframes (flight schools, blogs)
 - **Share links** that unfurl with the actual scenario (worker-rewritten OG meta)
