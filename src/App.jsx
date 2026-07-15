@@ -32,6 +32,7 @@ import LessonPanel from "./components/LessonPanel";
 import ChallengePanel from "./components/ChallengePanel";
 import { LESSONS } from "./content/lessonContent";
 import { lessonAchieved, minSinkSpeedKmh } from "./lib/lessons";
+import { track } from "./lib/beacon";
 
 // Vertical speeds used to dramatize invalid flight regimes (m/s).
 const STALL_DROP = -6.0;
@@ -159,6 +160,7 @@ export default function App() {
     if (Number.isFinite(su.liftMs)) setLiftMs(su.liftMs);
     setMaccreadyMs(su.maccreadyMs ?? 0);
     setLessonIdx(idx);
+    track("lesson_open", { d1: lesson.id, d2: lang });
   };
 
   const openChallenge = () => {
@@ -181,6 +183,28 @@ export default function App() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Anonymous usage beacons: embed views and mode switches.
+  useEffect(() => {
+    if (!embed) return;
+    let refHost = "";
+    try {
+      refHost = document.referrer ? new URL(document.referrer).hostname : "";
+    } catch {
+      /* ignore */
+    }
+    track("embed_view", { d1: refHost, d2: lang });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embed]);
+  const modeTrackedRef = useRef(false);
+  useEffect(() => {
+    if (!modeTrackedRef.current) {
+      modeTrackedRef.current = true;
+      return; // skip the initial mount
+    }
+    track("mode_switch", { d1: mode, d2: lang });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   // Classroom mode: projector-friendly scaling.
   useEffect(() => {
@@ -374,6 +398,16 @@ export default function App() {
         minSinkKmh,
       })
     : false;
+
+  // Report a completed lesson once per visit (anonymous count).
+  const doneTrackedRef = useRef(new Set());
+  useEffect(() => {
+    if (!achieved || !currentLesson) return;
+    if (doneTrackedRef.current.has(currentLesson.id)) return;
+    doneTrackedRef.current.add(currentLesson.id);
+    track("lesson_done", { d1: currentLesson.id, d2: lang });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [achieved, currentLesson]);
 
   const PANEL_OVERLAY =
     "hidden md:block absolute top-3 left-3 md:w-[400px] max-h-[calc(100%-24px)] overflow-y-auto bg-ink border border-white/25 shadow-xl p-3.5 text-glacier";

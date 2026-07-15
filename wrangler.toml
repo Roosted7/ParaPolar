@@ -2,6 +2,17 @@ name = "parapolar"
 main = "worker/index.ts"
 compatibility_date = "2026-07-01"
 
+[vars]
+ACCOUNT_ID = "f12b33774d4d52fa6b1a677c63fd459c"
+
+# First-party, cookieless event counts (see /beacon in the worker).
+# Reading them back (/stats) additionally needs the ANALYTICS_API_TOKEN
+# secret: `wrangler secret put ANALYTICS_API_TOKEN` with an Account
+# Analytics:Read API token.
+[[analytics_engine_datasets]]
+binding = "EVENTS"
+dataset = "parapolar_events"
+
 # Static SPA build served via Workers Assets.
 # run_worker_first is required so the language-domain redirects in the worker
 # execute before an asset (e.g. "/" -> index.html) would be served directly.

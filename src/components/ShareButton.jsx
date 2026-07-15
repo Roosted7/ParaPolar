@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { track } from "../lib/beacon";
 
 /** Copies the current (permalink-bearing) URL to the clipboard. */
 export default function ShareButton({ t }) {
@@ -11,6 +12,7 @@ export default function ShareButton({ t }) {
     try {
       await navigator.clipboard.writeText(window.location.href);
       setCopied(true);
+      track("share_copied");
       clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
