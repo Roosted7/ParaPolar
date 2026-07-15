@@ -22,9 +22,12 @@ jobs:
 
   deploy:
     # Deploys to Cloudflare on pushes to main, once CI passes.
-    # Requires the CLOUDFLARE_API_TOKEN repository secret (Workers deploy permission).
+    # Opt-in: set the repository VARIABLE CF_DEPLOY=enabled AND the secret
+    # CLOUDFLARE_API_TOKEN (a token from the "Edit Cloudflare Workers"
+    # template — the analytics read token cannot deploy). Until then this
+    # job is skipped and deploys happen manually via `npm run deploy`.
     needs: ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.CF_DEPLOY == 'enabled'
     runs-on: ubuntu-latest
     environment: production
     env:
