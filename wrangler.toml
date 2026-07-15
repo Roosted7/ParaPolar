@@ -1,5 +1,6 @@
 name = "parapolar"
 main = "worker/index.ts"
+account_id = "f12b33774d4d52fa6b1a677c63fd459c"
 compatibility_date = "2026-07-01"
 
 [vars]
