@@ -184,6 +184,24 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Anonymous visit beacon: referrer host, coarse device bucket, and a
+  // new-vs-returning bit derived from pre-existing functional storage
+  // (captured lazily BEFORE this visit saves its own state).
+  const [wasReturning] = useState(hasSavedState);
+  useEffect(() => {
+    if (embed) return;
+    let refHost = "";
+    try {
+      refHost = document.referrer ? new URL(document.referrer).hostname : "";
+    } catch {
+      /* ignore */
+    }
+    const w = window.innerWidth;
+    const device = w < 768 ? "mobile" : w < 1152 ? "tablet" : "desktop";
+    track("visit", { d1: refHost, d2: device, d3: wasReturning ? "returning" : "new" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Anonymous usage beacons: embed views and mode switches.
   useEffect(() => {
     if (!embed) return;

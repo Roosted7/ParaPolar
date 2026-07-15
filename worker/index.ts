@@ -131,6 +131,7 @@ function describeShareState(param: string): string | null {
 // No IPs, no user agents, no identifiers of any kind.
 
 const KNOWN_EVENTS = new Set([
+  "visit",
   "lesson_open",
   "lesson_done",
   "challenge_flown",
@@ -145,8 +146,17 @@ async function handleBeacon(request: Request, env: Env): Promise<Response> {
     const event = String(body.e ?? "");
     if (KNOWN_EVENTS.has(event) && env.EVENTS) {
       const v1 = Number(body.v1);
+      // Country comes from Cloudflare's edge metadata — the IP itself is
+      // never read by our code and never stored anywhere.
+      const country = String(request.cf?.country ?? "");
       env.EVENTS.writeDataPoint({
-        blobs: [event, String(body.d1 ?? "").slice(0, 64), String(body.d2 ?? "").slice(0, 64)],
+        blobs: [
+          event,
+          String(body.d1 ?? "").slice(0, 64),
+          String(body.d2 ?? "").slice(0, 64),
+          String(body.d3 ?? "").slice(0, 64),
+          country,
+        ],
         doubles: [Number.isFinite(v1) ? v1 : 0],
         indexes: [event],
       });
@@ -169,12 +179,13 @@ async function handleStatsData(env: Env): Promise<Response> {
     );
   }
   const sql = `
-    SELECT blob1 AS event, blob2 AS detail,
+    SELECT blob1 AS event, blob2 AS detail, blob3 AS detail2,
+           blob4 AS detail3, blob5 AS country,
            SUM(_sample_interval) AS count,
            SUM(double1 * _sample_interval) / SUM(_sample_interval) AS avg_value
     FROM parapolar_events
     WHERE timestamp > NOW() - INTERVAL '30' DAY
-    GROUP BY event, detail
+    GROUP BY event, detail, detail2, detail3, country
     ORDER BY count DESC
     FORMAT JSON`;
   const resp = await fetch(
@@ -230,7 +241,7 @@ const STATS_HTML = `<!doctype html>
 <body>
 <main>
   <h1><b>para</b>polar · stats</h1>
-  <div class="sub">Anonymous aggregate event counts, last 30 days. No cookies, no IPs, no identifiers — which is why this page needs no password.</div>
+  <div class="sub">Anonymous aggregate event counts, last 30 days. No cookies, no IPs, no identifiers — country comes from Cloudflare's edge, device is a coarse viewport bucket, and \u201creturning\u201d is a single bit derived from the app's own saved settings. That is why this page needs no password.</div>
   <div id="out">Loading…</div>
 </main>
 <script>
@@ -258,6 +269,18 @@ const STATS_HTML = `<!doctype html>
         '<span class="n">' + Number(r.count).toLocaleString() + '</span></div>').join('');
     };
 
+    // client-side re-aggregation over one grouped result set
+    const agg = (rs, key) => {
+      const m = {};
+      for (const r of rs) { const k = r[key] || '—'; m[k] = (m[k] || 0) + Number(r.count); }
+      return Object.entries(m).sort((a, b) => b[1] - a[1]).map(([detail, count]) => ({ detail, count }));
+    };
+    const visits = by('visit');
+    const newRet = agg(visits, 'detail3');
+    const devices = agg(visits, 'detail2');
+    const referrers = agg(visits, 'detail').map(r => r.detail === '—' ? { ...r, detail: 'direct / none' } : r);
+    const countries = agg(visits, 'country');
+
     const opened = by('lesson_open'), done = by('lesson_done');
     const flights = by('challenge_flown');
     const avgScore = flights.length
@@ -265,6 +288,11 @@ const STATS_HTML = `<!doctype html>
       : null;
 
     out.innerHTML =
+      '<section><h2>Visits (' + sum(visits).toLocaleString() + ')</h2>' +
+        newRet.map(r => '<div class="row"><span class="k">' + esc(r.detail) + '</span><span class="n">' + r.count.toLocaleString() + '</span></div>').join('') +
+        '<div style="height:8px"></div>' + bars(devices) + '</section>' +
+      '<section><h2>Top referrers</h2>' + bars(referrers.slice(0, 12)) + '</section>' +
+      '<section><h2>Countries</h2>' + bars(countries.slice(0, 12)) + '</section>' +
       '<section><h2>Lessons opened (' + sum(opened).toLocaleString() + ')</h2>' + bars(opened) + '</section>' +
       '<section><h2>Lessons completed (' + sum(done).toLocaleString() + ')</h2>' + bars(done) + '</section>' +
       '<section><h2>Valley challenge</h2><div class="big">' + sum(flights).toLocaleString() +
