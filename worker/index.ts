@@ -147,12 +147,24 @@ const KNOWN_EVENTS = new Set([
 const BOT_UA =
   /bot|crawler|spider|crawl|slurp|headless|lighthouse|pagespeed|pingdom|uptime|monitor|preview|scanner|curl|wget|python|httpx|axios|node-fetch|go-http|okhttp|java\//i;
 
+const OK_ORIGIN = /^https:\/\/(www\.)?parapolar\.(com|fr|de|nl)$/;
+
 async function handleBeacon(request: Request, env: Env): Promise<Response> {
+  const drop = () =>
+    new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
   try {
+    // 1. Must come from a parapolar page: browsers send Origin (or at least
+    //    Sec-Fetch-Site) on beacon POSTs; curl/scripts with spoofed UAs don't.
+    const origin = request.headers.get("origin") || "";
+    const fetchSite = request.headers.get("sec-fetch-site") || "";
+    if (!OK_ORIGIN.test(origin) && fetchSite !== "same-origin") return drop();
+    // 2. Cloudflare-verified bots (search engines, AI crawlers like GPTBot /
+    //    ClaudeBot / CCBot) — when the edge identifies one, drop it.
+    const cfAny = request.cf as Record<string, unknown> | undefined;
+    if (cfAny?.verifiedBotCategory) return drop();
+    // 3. Cheap UA net for the rest (header checked, never stored).
     const ua = request.headers.get("user-agent") || "";
-    if (!ua || BOT_UA.test(ua)) {
-      return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
-    }
+    if (!ua || BOT_UA.test(ua)) return drop();
     const body = (await request.json()) as Record<string, unknown>;
     const event = String(body.e ?? "");
     if (KNOWN_EVENTS.has(event) && env.EVENTS) {
@@ -239,7 +251,7 @@ const STATS_HTML = `<!doctype html>
   h2 { font:11px ui-monospace,Consolas,monospace; letter-spacing:0.18em; text-transform:uppercase;
     color:var(--bright); margin:0 0 10px; }
   .row { display:flex; align-items:center; gap:10px; padding:3px 0; }
-  .row .k { width:190px; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .row .k { width:230px; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .row .bar { flex:1; height:10px; background:rgba(255,255,255,0.06); position:relative; }
   .row .bar i { position:absolute; inset:0 auto 0 0; background:var(--thermal); display:block; }
   .row .bar i.sky { background:var(--sky); }
@@ -302,7 +314,31 @@ const STATS_HTML = `<!doctype html>
       .sort((a, b) => BUCKETS.indexOf(a.detail) - BUCKETS.indexOf(b.detail));
     const fmtDur = (s) => s == null ? '—' : s >= 90 ? (s / 60).toFixed(1) + ' min' : Math.round(s) + ' s';
 
-    const discovery = agg(by('discover'), 'detail');
+    const FUNNEL_KEYS = ['touched_speed', 'changed_environment', 'advanced_mode', 'learning_content', 'completed_something'];
+    const discoverAll = agg(by('discover'), 'detail');
+    const discovery = discoverAll.filter(r => !FUNNEL_KEYS.includes(r.detail));
+    const dCount = (k) => Number((discoverAll.find(r => r.detail === k) || {}).count || 0);
+    const FUNNEL = [
+      { label: 'Visited', n: nVisits },
+      { label: 'Moved the speed control', n: dCount('touched_speed') },
+      { label: 'Changed wind / lift / scenario', n: dCount('changed_environment') },
+      { label: 'Reached Advanced mode', n: dCount('advanced_mode') },
+      { label: 'Opened a lesson / challenge / learn page', n: dCount('learning_content') },
+      { label: 'Completed one', n: dCount('completed_something') },
+    ];
+    let worstDrop = -1, worstIdx = -1;
+    for (let i = 1; i < FUNNEL.length; i++) {
+      const drop = FUNNEL[i - 1].n - FUNNEL[i].n;
+      if (FUNNEL[i - 1].n > 0 && drop > worstDrop) { worstDrop = drop; worstIdx = i; }
+    }
+    const funnelHtml = nVisits === 0 ? '<div class="sub">— nothing yet —</div>' : FUNNEL.map((f, i) => {
+      const pct = Math.min(100, Math.round(100 * f.n / Math.max(1, nVisits)));
+      const flag = i === worstIdx && worstDrop > 0
+        ? ' <span style="color:#c96f5e">⚠ biggest drop-off</span>' : '';
+      return '<div class="row"><span class="k">' + esc(f.label) + flag + '</span>' +
+        '<span class="bar"><i style="width:' + Math.max(2, pct) + '%"></i></span>' +
+        '<span class="n">' + f.n.toLocaleString() + ' (' + pct + '%)</span></div>';
+    }).join('');
     const flights = by('challenge_flown');
     const valley = flights.filter(r => r.detail === 'valley');
     const landing = flights.filter(r => r.detail === 'landing');
@@ -316,6 +352,7 @@ const STATS_HTML = `<!doctype html>
       '<section><h2>Session length</h2>' +
         '<div class="big">' + fmtDur(avgSecs) + ' <small>avg engaged time · ' + sum(sessions).toLocaleString() + ' sessions</small></div>' +
         '<div style="height:8px"></div>' + bars(buckets, { sky: true }) + '</section>' +
+      '<section><h2>Journey funnel — where visits stop</h2>' + funnelHtml + '</section>' +
       '<section><h2>Feature discovery — share of visits that found it</h2>' +
         bars(discovery, { of: nVisits }) + '</section>' +
       '<div class="grid2">' +

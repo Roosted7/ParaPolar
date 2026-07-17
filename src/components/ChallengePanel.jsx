@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CHALLENGE_DISTANCE_KM, heightLost, optimalCrossing, scoreCrossing } from "../lib/challenge";
-import { track } from "../lib/beacon";
+import { track, discover } from "../lib/beacon";
 
 /**
  * Valley-crossing challenge: pick a speed with the live controls, fly it,
@@ -25,6 +25,7 @@ export default function ChallengePanel({ t, polar, speedKmh, windKmh, liftMs, fl
     const optimal = optimalCrossing(args);
     const score = scoreCrossing(yours, optimal?.heightM ?? null);
     setResult({ yours, optimal, score });
+    discover("completed_something");
     track("challenge_flown", { d1: "valley", v1: score });
   };
 

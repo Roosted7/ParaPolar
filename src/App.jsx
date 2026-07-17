@@ -34,7 +34,7 @@ import LandingPanel from "./components/LandingPanel";
 import { LESSONS } from "./content/lessonContent";
 import { lessonAchieved, minSinkSpeedKmh } from "./lib/lessons";
 import { scoreLanding, estimateLandingBand } from "./lib/landing";
-import { track, discover, initSessionBeacon } from "./lib/beacon";
+import { track, discover, initSessionBeacon, confirmHuman } from "./lib/beacon";
 
 // Vertical speeds used to dramatize invalid flight regimes (m/s).
 const STALL_DROP = -6.0;
@@ -113,6 +113,7 @@ export default function App() {
 
   const applyPreset = (id) => {
     discover("scenarios");
+    discover("changed_environment");
     setPreset(id);
     const p = PRESETS.find((x) => x.id === id);
     if (!p) return;
@@ -192,6 +193,7 @@ export default function App() {
     setMaccreadyMs(su.maccreadyMs ?? 0);
     setLessonIdx(idx);
     discover("lessons");
+    discover("learning_content");
     track("lesson_open", { d1: lesson.id, d2: lang });
   };
 
@@ -202,6 +204,7 @@ export default function App() {
     setMode("advanced");
     setChallengeOpen(true);
     discover("challenge_valley");
+    discover("learning_content");
   };
 
   const openLanding = () => {
@@ -213,6 +216,7 @@ export default function App() {
     setLandingResult(null);
     setLandingOpen(true);
     discover("challenge_landing");
+    discover("learning_content");
   };
 
   const startLandingRun = () => {
@@ -230,6 +234,7 @@ export default function App() {
   const onLanded = (res) => {
     const { score, verdictKey } = scoreLanding(res);
     setLandingResult({ ...res, score, verdictKey });
+    discover("completed_something");
     track("challenge_flown", { d1: "landing", d2: verdictKey, v1: score });
   };
 
@@ -251,18 +256,43 @@ export default function App() {
   // new-vs-returning bit derived from pre-existing functional storage
   // (captured lazily BEFORE this visit saves its own state).
   const [wasReturning] = useState(hasSavedState);
+  // The visit only counts after a real interaction OR 4 s of visible tab
+  // time — the one signal render-crawlers and AI scrapers essentially never
+  // produce. Sessions report only after this gate passes (confirmHuman).
   useEffect(() => {
     if (embed) return;
-    let refHost = "";
-    try {
-      refHost = document.referrer ? new URL(document.referrer).hostname : "";
-    } catch {
-      /* ignore */
-    }
-    const w = window.innerWidth;
-    const device = w < 768 ? "mobile" : w < 1152 ? "tablet" : "desktop";
-    track("visit", { d1: refHost, d2: device, d3: wasReturning ? "returning" : "new" });
-    initSessionBeacon();
+    initSessionBeacon(); // timing starts at load; sending is human-gated
+    let done = false;
+    let visibleMs = 0;
+    const send = () => {
+      if (done) return;
+      done = true;
+      cleanup();
+      confirmHuman();
+      let refHost = "";
+      try {
+        refHost = document.referrer ? new URL(document.referrer).hostname : "";
+      } catch {
+        /* ignore */
+      }
+      const w = window.innerWidth;
+      const device = w < 768 ? "mobile" : w < 1152 ? "tablet" : "desktop";
+      track("visit", { d1: refHost, d2: device, d3: wasReturning ? "returning" : "new" });
+    };
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        visibleMs += 500;
+        if (visibleMs >= 4000) send();
+      }
+    }, 500);
+    const cleanup = () => {
+      clearInterval(timer);
+      window.removeEventListener("pointerdown", send, true);
+      window.removeEventListener("keydown", send, true);
+    };
+    window.addEventListener("pointerdown", send, { capture: true });
+    window.addEventListener("keydown", send, { capture: true });
+    return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -278,6 +308,9 @@ export default function App() {
     track("embed_view", { d1: refHost, d2: lang });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [embed]);
+  useEffect(() => {
+    if (mode === "advanced" && !embed) discover("advanced_mode");
+  }, [mode, embed]);
   const modeTrackedRef = useRef(false);
   useEffect(() => {
     if (!modeTrackedRef.current) {
@@ -434,11 +467,13 @@ export default function App() {
   // ===== Direct manipulation =====
   const dragSpeedBy = (deltaKmh) => {
     discover("drag_wing");
+    discover("touched_speed");
     const current = sliderToSpeed(pilotSlider, landmarks);
     setPilotSlider(speedToSliderFull(current + deltaKmh, landmarks));
   };
   const dragWindTo = (wind) => {
     discover("drag_windsock");
+    discover("changed_environment");
     if (mode === "simple") {
       setSimpleWind(clamp(-wind / 20, -1, 1));
     } else {
@@ -496,6 +531,7 @@ export default function App() {
     if (!achieved || !currentLesson) return;
     if (doneTrackedRef.current.has(currentLesson.id)) return;
     doneTrackedRef.current.add(currentLesson.id);
+    discover("completed_something");
     track("lesson_done", { d1: currentLesson.id, d2: lang });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [achieved, currentLesson]);
@@ -664,7 +700,10 @@ export default function App() {
     <SpeedControl
       t={t}
       value={pilotSlider}
-      onChange={setPilotSlider}
+      onChange={(v) => {
+        discover("touched_speed");
+        setPilotSlider(v);
+      }}
       stfSlider={mode === "advanced" ? stfSlider : null}
       danger={flightMode !== "normal" ? flightMode : null}
     />
@@ -684,11 +723,20 @@ export default function App() {
         setCompareGliderId(id);
       }}
       simpleWind={simpleWind}
-      setSimpleWind={setSimpleWind}
+      setSimpleWind={(v) => {
+        discover("changed_environment");
+        setSimpleWind(v);
+      }}
       windKmh={windKmh}
-      setWindKmh={setWindKmh}
+      setWindKmh={(v) => {
+        discover("changed_environment");
+        setWindKmh(v);
+      }}
       liftMs={liftMs}
-      setLiftMs={setLiftMs}
+      setLiftMs={(v) => {
+        discover("changed_environment");
+        setLiftMs(v);
+      }}
       maccreadyMs={maccreadyMs}
       setMaccreadyMs={setMaccreadyMs}
       wingLoad={wingLoad}

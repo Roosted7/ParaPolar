@@ -34,7 +34,10 @@ export default function Header({
           </button>
           <a
             href={`${lang === "en" ? "" : `/${lang}`}/learn/`}
-            onClick={() => discover("learn_pages")}
+            onClick={() => {
+              discover("learn_pages");
+              discover("learning_content");
+            }}
             className="px-2.5 py-1 text-sm border border-white/20 text-glacier hover:border-thermal-bright no-underline"
           >
             {t.nav_learn}

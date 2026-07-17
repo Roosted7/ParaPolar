@@ -8,6 +8,12 @@
 
 const sentDiscoveries = new Set(); // per page load, in memory only
 let sessionStarted = false;
+let humanConfirmed = false;
+
+/** Called once the visit passed the interaction/visible-time gate. */
+export function confirmHuman() {
+  humanConfirmed = true;
+}
 
 function automated() {
   try {
@@ -71,6 +77,7 @@ export function initSessionBeacon() {
         engagedMs += performance.now() - visibleSince;
         visibleSince = null;
       }
+      if (!humanConfirmed) return; // the visit gate never passed: likely a bot
       const secs = Math.min(3600, Math.round(engagedMs / 1000));
       if (secs < 2) return; // ignore bounce-noise and prerender-ish loads
       sent = true;
