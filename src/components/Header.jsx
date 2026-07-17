@@ -1,4 +1,5 @@
 import { LANGS } from "../lib/i18n";
+import { discover } from "../lib/beacon";
 
 export default function Header({
   t,
@@ -33,6 +34,7 @@ export default function Header({
           </button>
           <a
             href={`${lang === "en" ? "" : `/${lang}`}/learn/`}
+            onClick={() => discover("learn_pages")}
             className="px-2.5 py-1 text-sm border border-white/20 text-glacier hover:border-thermal-bright no-underline"
           >
             {t.nav_learn}

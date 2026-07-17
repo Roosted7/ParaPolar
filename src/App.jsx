@@ -34,7 +34,7 @@ import LandingPanel from "./components/LandingPanel";
 import { LESSONS } from "./content/lessonContent";
 import { lessonAchieved, minSinkSpeedKmh } from "./lib/lessons";
 import { scoreLanding, estimateLandingBand } from "./lib/landing";
-import { track } from "./lib/beacon";
+import { track, discover, initSessionBeacon } from "./lib/beacon";
 
 // Vertical speeds used to dramatize invalid flight regimes (m/s).
 const STALL_DROP = -6.0;
@@ -112,6 +112,7 @@ export default function App() {
   }, [mode, unit, gliderId, pilotSlider, simpleWind, windKmh, liftMs, preset, maccreadyMs, wingLoad]);
 
   const applyPreset = (id) => {
+    discover("scenarios");
     setPreset(id);
     const p = PRESETS.find((x) => x.id === id);
     if (!p) return;
@@ -190,6 +191,7 @@ export default function App() {
     if (Number.isFinite(su.liftMs)) setLiftMs(su.liftMs);
     setMaccreadyMs(su.maccreadyMs ?? 0);
     setLessonIdx(idx);
+    discover("lessons");
     track("lesson_open", { d1: lesson.id, d2: lang });
   };
 
@@ -199,6 +201,7 @@ export default function App() {
     closeLanding();
     setMode("advanced");
     setChallengeOpen(true);
+    discover("challenge_valley");
   };
 
   const openLanding = () => {
@@ -209,6 +212,7 @@ export default function App() {
     setPreset("none");
     setLandingResult(null);
     setLandingOpen(true);
+    discover("challenge_landing");
   };
 
   const startLandingRun = () => {
@@ -226,7 +230,7 @@ export default function App() {
   const onLanded = (res) => {
     const { score, verdictKey } = scoreLanding(res);
     setLandingResult({ ...res, score, verdictKey });
-    track("challenge_flown", { d1: "landing", v1: score });
+    track("challenge_flown", { d1: "landing", d2: verdictKey, v1: score });
   };
 
   // Deep link: ?lesson=1..6 opens a lesson directly (used by learn pages).
@@ -258,6 +262,7 @@ export default function App() {
     const w = window.innerWidth;
     const device = w < 768 ? "mobile" : w < 1152 ? "tablet" : "desktop";
     track("visit", { d1: refHost, d2: device, d3: wasReturning ? "returning" : "new" });
+    initSessionBeacon();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -428,10 +433,12 @@ export default function App() {
 
   // ===== Direct manipulation =====
   const dragSpeedBy = (deltaKmh) => {
+    discover("drag_wing");
     const current = sliderToSpeed(pilotSlider, landmarks);
     setPilotSlider(speedToSliderFull(current + deltaKmh, landmarks));
   };
   const dragWindTo = (wind) => {
+    discover("drag_windsock");
     if (mode === "simple") {
       setSimpleWind(clamp(-wind / 20, -1, 1));
     } else {
@@ -551,7 +558,10 @@ export default function App() {
         showVario={mode === "advanced"}
         earsOn={earsActive}
         showEars={mode === "advanced" && !embed}
-        onToggleEars={() => setBigEars((v) => !v)}
+        onToggleEars={() => {
+          discover("big_ears");
+          setBigEars((v) => !v);
+        }}
         landing={landingRun ? { ...landingRun, level: landingLevel } : null}
         onLanded={onLanded}
         onDragSpeed={dragSpeedBy}
@@ -669,7 +679,10 @@ export default function App() {
       gliderId={gliderId}
       setGliderId={setGliderId}
       compareGliderId={compareGliderId}
-      setCompareGliderId={setCompareGliderId}
+      setCompareGliderId={(id) => {
+        if (id) discover("compare");
+        setCompareGliderId(id);
+      }}
       simpleWind={simpleWind}
       setSimpleWind={setSimpleWind}
       windKmh={windKmh}
@@ -735,7 +748,10 @@ export default function App() {
         mode={mode}
         setMode={setMode}
         onLessons={() => (lessonIdx == null ? openLesson(0) : setLessonIdx(null))}
-        onSetup={() => setSidebarOpen((v) => !v)}
+        onSetup={() => {
+          discover("setup");
+          setSidebarOpen((v) => !v);
+        }}
         setupOpen={sidebarOpen}
         classroom={classroom}
         setClassroom={setClassroom}

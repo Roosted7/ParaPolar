@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { KMH_TO_MS, clamp, convertSpeed } from "../lib/units";
 import { landingStep, windGust, windGradient, APPROACH_ALT_M } from "../lib/landing";
+import { discover } from "../lib/beacon";
 
 /**
  * The scene: a paraglider flying over terrain, wind/lift particles, and a
@@ -454,6 +455,7 @@ export default function GroundViz({
   };
 
   const toggleVario = () => {
+    discover("vario");
     const next = !varioEnabled;
     setVarioEnabled(next);
     if (next) {
@@ -519,7 +521,10 @@ export default function GroundViz({
                 ? "bg-thermal text-ink border-thermal font-semibold"
                 : "bg-ink/60 text-glacier border-white/25"
             }`}
-            onClick={() => setWindSoundEnabled((v) => !v)}
+            onClick={() => {
+              discover("wind_sound");
+              setWindSoundEnabled((v) => !v);
+            }}
           >
             {t.wind_sound} {windSoundEnabled ? "🔊" : "🔇"}
           </button>
