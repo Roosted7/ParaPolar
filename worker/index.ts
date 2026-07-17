@@ -333,12 +333,14 @@ const STATS_HTML = `<!doctype html>
     }
     const funnelHtml = nVisits === 0 ? '<div class="sub">— nothing yet —</div>' : FUNNEL.map((f, i) => {
       const pct = Math.min(100, Math.round(100 * f.n / Math.max(1, nVisits)));
-      const flag = i === worstIdx && worstDrop > 0
-        ? ' <span style="color:#c96f5e">⚠ biggest drop-off</span>' : '';
-      return '<div class="row"><span class="k">' + esc(f.label) + flag + '</span>' +
+      const worst = i === worstIdx && worstDrop > 0;
+      const style = worst ? ' style="box-shadow:inset 3px 0 0 #c96f5e; padding-left:8px"' : '';
+      const title = worst ? ' title="biggest drop-off"' : '';
+      return '<div class="row"' + style + title + '><span class="k">' + esc(f.label) + '</span>' +
         '<span class="bar"><i style="width:' + Math.max(2, pct) + '%"></i></span>' +
         '<span class="n">' + f.n.toLocaleString() + ' (' + pct + '%)</span></div>';
-    }).join('');
+    }).join('') + (worstIdx > 0 && worstDrop > 0
+      ? '<div class="sub" style="margin-top:8px">▍red edge = biggest drop-off</div>' : '');
     const flights = by('challenge_flown');
     const valley = flights.filter(r => r.detail === 'valley');
     const landing = flights.filter(r => r.detail === 'landing');
